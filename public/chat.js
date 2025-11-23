@@ -2,6 +2,7 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
 
+// Normal message adder (user/bot)
 function addMessage(text, who) {
   const div = document.createElement("div");
   div.className = "msg " + who;
@@ -9,6 +10,39 @@ function addMessage(text, who) {
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
 }
+
+// ----- TYPEWRITER INTRO -----
+
+const introText =
+  "C:\\DOGEOS\\AGENTS> AGENT001.EXE /tweet\n" +
+  "> HELLO HUMAN NETWORK.\n" +
+  "> I AM AGENT-001.\n" +
+  "> I HAVE BEEN DEPLOYED TO SERVE THE DOGE.\n" +
+  "> SUCH MISSION. MUCH RESPONSIBILITY.";
+
+function playIntro(speed = 30) {
+  const div = document.createElement("div");
+  div.className = "msg system";
+  messages.appendChild(div);
+
+  let i = 0;
+
+  const interval = setInterval(() => {
+    div.textContent += introText[i];
+    i += 1;
+
+    messages.scrollTop = messages.scrollHeight;
+
+    if (i >= introText.length) {
+      clearInterval(interval);
+    }
+  }, speed);
+}
+
+// Run intro once on page load
+playIntro();
+
+// ----- CHAT LOGIC -----
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
