@@ -20,7 +20,7 @@ body {
   padding: 8px 10px;
 }
 
-/* Title + subtitle like an old program header */
+/* Title + subtitle */
 h1 {
   margin: 0;
   font-size: 20px;
@@ -32,7 +32,7 @@ p {
   font-size: 12px;
 }
 
-/* Main chat "screen" */
+/* Main chat screen */
 #chat-container {
   border-top: 1px solid #ffffff;
   margin-top: 4px;
@@ -41,7 +41,7 @@ p {
   height: 500px;
 }
 
-/* Scroll area – pure black, white text */
+/* Scroll area */
 .messages {
   flex: 1;
   padding: 6px;
@@ -49,14 +49,14 @@ p {
   background: #000000;
 }
 
-/* Each line = one console line */
+/* Console-like lines */
 .msg {
   font-size: 13px;
   line-height: 1.4;
   white-space: pre-wrap;
 }
 
-/* Prefixes like a DOS console using ASCII prompt style */
+/* Prefix for normal user and bot messages */
 .msg.user::before {
   content: "YOU> ";
 }
@@ -65,13 +65,18 @@ p {
   content: "DOGE> ";
 }
 
-/* Input area at bottom, like a command prompt */
+/* >>> SYSTEM MESSAGE (typewriter intro, no prefix) <<< */
+.msg.system::before {
+  content: "";
+}
+
+/* Input bar */
 #chat-form {
   display: flex;
   border-top: 1px solid #ffffff;
 }
 
-/* Text input: black background, white border on top only */
+/* Input field */
 #input {
   flex: 1;
   padding: 6px;
@@ -82,7 +87,7 @@ p {
   color: #ffffff;
 }
 
-/* Button: black/white only */
+/* Send button */
 button[type="submit"] {
   padding: 0 14px;
   border: none;
@@ -94,7 +99,7 @@ button[type="submit"] {
   cursor: pointer;
 }
 
-/* Simple invert on hover */
+/* Hover effect */
 button[type="submit"]:hover {
   background: #ffffff;
   color: #000000;
