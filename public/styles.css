@@ -1,7 +1,7 @@
 /* Global DOS look */
 body {
   margin: 0;
-  font-family: "Courier New", Courier, monospace;
+  font-family: "Courier New", Courier, monospace;  /* change font here */
   background: #000000;
   color: #ffffff;
   display: flex;
@@ -53,22 +53,37 @@ p {
 .msg {
   font-size: 13px;
   line-height: 1.4;
-  white-space: pre-wrap;
+  white-space: pre-wrap;  /* keep ASCII layout */
 }
 
-/* Prefix for normal user and bot messages */
+/* Prefix for user messages only */
 .msg.user::before {
   content: "YOU> ";
 }
 
-.msg.bot::before {
-  content: "DOGE> ";
-}
-
-/* >>> SYSTEM MESSAGE (typewriter intro, no prefix) <<< */
+/* System lines (intro etc.) – no prefix */
 .msg.system::before {
   content: "";
 }
+
+/* Blinking cursor for typewriter intro */
+.msg.system.typing::after {
+  content: "_";
+  margin-left: 2px;
+  animation: blink 0.8s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  50.01%, 100% {
+    opacity: 0;
+  }
+}
+
+/* No automatic prefix for bot anymore (we'll render DOGE> in the ASCII box) */
+/* .msg.bot::before is intentionally removed */
 
 /* Input bar */
 #chat-form {
