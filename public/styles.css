@@ -1,93 +1,101 @@
+/* Global DOS look */
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #111827;
-  color: #f9fafb;
+  font-family: "Courier New", Courier, monospace;
+  background: #000000;
+  color: #ffffff;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   min-height: 100vh;
 }
 
+/* Outer frame */
 .chat-wrapper {
-  margin-top: 40px;
+  margin-top: 20px;
   width: 100%;
-  max-width: 600px;
-  background: #0f172a;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+  max-width: 800px;
+  background: #000000;
+  border: 1px solid #ffffff;
+  padding: 8px 10px;
 }
 
+/* Title + subtitle like an old program header */
 h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 1px;
 }
 
 p {
-  margin: 0 0 16px;
-  font-size: 14px;
-  color: #9ca3af;
+  margin: 2px 0 8px;
+  font-size: 12px;
 }
 
+/* Main chat "screen" */
 #chat-container {
-  border: 1px solid #1f2933;
-  border-radius: 6px;
+  border-top: 1px solid #ffffff;
+  margin-top: 4px;
   display: flex;
   flex-direction: column;
   height: 500px;
 }
 
+/* Scroll area – pure black, white text */
 .messages {
   flex: 1;
-  padding: 8px;
+  padding: 6px;
   overflow-y: auto;
-  background: #020617;
+  background: #000000;
 }
 
+/* Each line = one console line */
 .msg {
-  margin-bottom: 8px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
+  white-space: pre-wrap;
 }
 
-.msg.user {
-  background: #1d4ed8;
-  align-self: flex-end;
+/* Prefixes like a DOS console using ASCII prompt style */
+.msg.user::before {
+  content: "YOU> ";
 }
 
-.msg.bot {
-  background: #111827;
-  border: 1px solid #374151;
-  align-self: flex-start;
+.msg.bot::before {
+  content: "DOGE> ";
 }
 
+/* Input area at bottom, like a command prompt */
 #chat-form {
   display: flex;
-  border-top: 1px solid #1f2937;
+  border-top: 1px solid #ffffff;
 }
 
+/* Text input: black background, white border on top only */
 #input {
   flex: 1;
-  padding: 8px;
+  padding: 6px;
   border: none;
   outline: none;
-  font-size: 14px;
-  background: #020617;
-  color: #f9fafb;
+  font-size: 13px;
+  background: #000000;
+  color: #ffffff;
 }
 
+/* Button: black/white only */
 button[type="submit"] {
-  padding: 0 16px;
+  padding: 0 14px;
   border: none;
-  background: #22c55e;
-  color: #111827;
+  border-left: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font-size: 13px;
   font-weight: bold;
   cursor: pointer;
 }
 
+/* Simple invert on hover */
 button[type="submit"]:hover {
-  background: #16a34a;
+  background: #ffffff;
+  color: #000000;
 }
