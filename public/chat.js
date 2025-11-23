@@ -2,51 +2,24 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
 
-// Add normal messages (user / bot / system)
-function addMessage(text, who) {
-  const div = document.createElement("div");
+// Typewriter function (for bot responses and intro)
+function typeWriter(element, text, speed = 15) {
+  let i = 0;
+  element.classList.add("typing"); // blinking cursor via CSS
 
-  if (who === "bot") {
-    // ASCII box for Doge replies
+  const interval = setInterval(() => {
+    element.textContent += text[i];
+    i += 1;
+    messages.scrollTop = messages.scrollHeight;
 
-    // Split into lines in case the model returns multi-line text
-    const lines = text.split("\n").map(l => l.trim());
-    const dogeLines = lines.map(l => "DOGE> " + l);
-
-    // Get max line length to size the box
-    const maxLen = dogeLines.reduce(
-      (max, line) => Math.max(max, line.length),
-      0
-    );
-
-    const border = "+" + "-".repeat(maxLen + 2) + "+";
-
-    const boxedText =
-      border +
-      "\n" +
-      dogeLines
-        .map(line => {
-          const padding = " ".repeat(maxLen - line.length);
-          return "| " + line + padding + " |";
-        })
-        .join("\n") +
-      "\n" +
-      border;
-
-    div.className = "msg bot";
-    div.textContent = boxedText;
-  } else {
-    // user or system
-    div.className = "msg " + who;
-    div.textContent = text;
-  }
-
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
+    if (i >= text.length) {
+      clearInterval(interval);
+      element.classList.remove("typing"); // stop blinking cursor
+    }
+  }, speed);
 }
 
 // ----- TYPEWRITER INTRO -----
-
 const introText =
   "C:\\DOGEOS\\AGENTS> AGENT001.EXE /tweet\n" +
   "> HELLO HUMAN NETWORK.\n" +
@@ -54,31 +27,60 @@ const introText =
   "> I HAVE BEEN DEPLOYED TO SERVE THE DOGE.\n" +
   "> SUCH MISSION. MUCH RESPONSIBILITY.";
 
-function playIntro(speed = 30) {
+function playIntro() {
   const div = document.createElement("div");
-  div.className = "msg system typing"; // typing = show blinking cursor
+  div.className = "msg system typing";
   messages.appendChild(div);
-
-  let i = 0;
-
-  const interval = setInterval(() => {
-    div.textContent += introText[i];
-    i += 1;
-
-    messages.scrollTop = messages.scrollHeight;
-
-    if (i >= introText.length) {
-      clearInterval(interval);
-      div.classList.remove("typing"); // stop cursor when done
-    }
-  }, speed);
+  typeWriter(div, introText, 20);
 }
 
-// Run intro once on page load
+// Run intro once at load
 playIntro();
 
-// ----- CHAT LOGIC -----
+// ----- ADD MESSAGE -----
+function addMessage(text, who, typeEffect = false) {
+  const div = document.createElement("div");
+  div.className = "msg " + who;
+  messages.appendChild(div);
 
+  if (who === "bot") {
+    // Build ASCII box
+    const lines = text.split("\n").map((l) => l.trim());
+    const dogeLines = lines.map((l) => "DOGE> " + l);
+
+    const maxLen = dogeLines.reduce((max, line) => Math.max(max, line.length), 0);
+    const border = "+" + "-".repeat(maxLen + 2) + "+";
+
+    const boxedText =
+      border +
+      "\n" +
+      dogeLines
+        .map((line) => {
+          const padding = " ".repeat(maxLen - line.length);
+          return "| " + line + padding + " |";
+        })
+        .join("\n") +
+      "\n" +
+      border;
+
+    if (typeEffect) {
+      typeWriter(div, boxedText, 10); // SPEED here (lower = slower)
+    } else {
+      div.textContent = boxedText;
+    }
+  } else {
+    // User or system message
+    if (typeEffect) {
+      typeWriter(div, text, 10);
+    } else {
+      div.textContent = text;
+    }
+  }
+
+  messages.scrollTop = messages.scrollHeight;
+}
+
+// ----- CHAT LOGIC -----
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
@@ -97,12 +99,12 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
 
     if (data.error) {
-      addMessage("Doge Agent error: " + data.error, "bot");
+      addMessage("Doge Agent error: " + data.error, "bot", true);
     } else {
-      addMessage(data.reply || "such silence, much empty", "bot");
+      addMessage(data.reply || "such silence, much empty", "bot", true); // enabled typewriter
     }
   } catch (err) {
     console.error(err);
-    addMessage("Doge Agent confused. Network broke.", "bot");
+    addMessage("Doge Agent confused. Network broke.", "bot", true);
   }
 });
