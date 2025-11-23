@@ -14,7 +14,7 @@ body {
 .chat-wrapper {
   margin-top: 20px;
   width: 100%;
-  max-width: 800px;
+  max-width: 1100px;  /* wider look */
   background: #000000;
   border: 1px solid #ffffff;
   padding: 8px 10px;
@@ -38,7 +38,7 @@ p {
   margin-top: 4px;
   display: flex;
   flex-direction: column;
-  height: 300px;
+  height: 380px;   /* shorter height */
 }
 
 /* Scroll area */
@@ -74,16 +74,15 @@ p {
 }
 
 @keyframes blink {
-  0%, 50% {
-    opacity: 1;
-  }
-  50.01%, 100% {
-    opacity: 0;
-  }
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
 }
 
-/* No automatic prefix for bot anymore (we'll render DOGE> in the ASCII box in JS) */
-/* .msg.bot::before is intentionally removed */
+/* BOT replies in classic phosphor green (CRT effect) */
+.msg.bot {
+  color: #00ff00;              /* retro terminal green */
+  text-shadow: 0 0 5px #00ff00; /* phosphor glow */
+}
 
 /* Input bar */
 #chat-form {
