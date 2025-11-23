@@ -21,9 +21,9 @@ function typeWriter(element, text, speed = 15) {
 
 // ----- TYPEWRITER INTRO -----
 const introText =
-  "C:\\DOGEOS\\AGENTS> AGENT001.EXE /tweet\n" +
+  "C:\\DOGEOS\\AGENTS> AGENT067.EXE /tweet\n" +
   "> HELLO HUMAN NETWORK.\n" +
-  "> I AM AGENT-001.\n" +
+  "> I AM AGENT-067.\n" +
   "> I HAVE BEEN DEPLOYED TO SERVE THE DOGE.\n" +
   "> SUCH MISSION. MUCH RESPONSIBILITY.";
 
@@ -45,12 +45,24 @@ function addMessage(text, who, typeEffect = false) {
 
   if (who === "bot") {
     // Build ASCII box
-    const lines = text.split("\n").map((l) => l.trim());
+
+    // 1) Split, trim, and REMOVE empty lines to avoid blank rows
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    // 2) Prefix with DOGE>
     const dogeLines = lines.map((l) => "DOGE> " + l);
 
-    const maxLen = dogeLines.reduce((max, line) => Math.max(max, line.length), 0);
+    // 3) Compute box width
+    const maxLen = dogeLines.reduce(
+      (max, line) => Math.max(max, line.length),
+      0
+    );
     const border = "+" + "-".repeat(maxLen + 2) + "+";
 
+    // 4) Build boxed text
     const boxedText =
       border +
       "\n" +
@@ -63,6 +75,7 @@ function addMessage(text, who, typeEffect = false) {
       "\n" +
       border;
 
+    // 5) Typewriter or instant
     if (typeEffect) {
       typeWriter(div, boxedText, 10); // SPEED here (lower = slower)
     } else {
