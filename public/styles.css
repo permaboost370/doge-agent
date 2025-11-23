@@ -14,7 +14,7 @@ body {
 .chat-wrapper {
   margin-top: 20px;
   width: 100%;
-  max-width: 1100px;  /* wider look */
+  max-width: 1100px;  /* wider look on desktop */
   background: #000000;
   border: 1px solid #ffffff;
   padding: 8px 10px;
@@ -38,7 +38,7 @@ p {
   margin-top: 4px;
   display: flex;
   flex-direction: column;
-  height: 380px;   /* shorter height */
+  height: 380px;   /* shorter height on desktop */
 }
 
 /* Scroll area */
@@ -78,9 +78,9 @@ p {
   50.01%, 100% { opacity: 0; }
 }
 
-/* BOT replies in classic phosphor green (CRT effect) */
+/* BOT replies in classic terminal green */
 .msg.bot {
-  color: #00ff00;              /* retro terminal green */
+  color: #00ff00;  /* retro terminal green, no glow */
 }
 
 /* Input bar */
@@ -116,4 +116,60 @@ button[type="submit"] {
 button[type="submit"]:hover {
   background: #ffffff;
   color: #000000;
+}
+
+/* ========== MOBILE RESPONSIVENESS ========== */
+
+@media (max-width: 768px) {
+  body {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .chat-wrapper {
+    margin: 0;
+    border: none;
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    padding: 6px;
+  }
+
+  #chat-container {
+    height: calc(100vh - 120px); /* adjust for header + input bar */
+  }
+
+  .messages {
+    font-size: 12px;
+    padding: 4px;
+  }
+
+  #input {
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  button[type="submit"] {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 16px;
+  }
+
+  p {
+    font-size: 10px;
+  }
+
+  .messages {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  #chat-container {
+    height: calc(100vh - 110px);
+  }
 }
