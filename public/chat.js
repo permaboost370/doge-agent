@@ -2,11 +2,45 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
 
-// Normal message adder (user/bot)
+// Add normal messages (user / bot / system)
 function addMessage(text, who) {
   const div = document.createElement("div");
-  div.className = "msg " + who;
-  div.textContent = text;
+
+  if (who === "bot") {
+    // ASCII box for Doge replies
+
+    // Split into lines in case the model returns multi-line text
+    const lines = text.split("\n").map(l => l.trim());
+    const dogeLines = lines.map(l => "DOGE> " + l);
+
+    // Get max line length to size the box
+    const maxLen = dogeLines.reduce(
+      (max, line) => Math.max(max, line.length),
+      0
+    );
+
+    const border = "+" + "-".repeat(maxLen + 2) + "+";
+
+    const boxedText =
+      border +
+      "\n" +
+      dogeLines
+        .map(line => {
+          const padding = " ".repeat(maxLen - line.length);
+          return "| " + line + padding + " |";
+        })
+        .join("\n") +
+      "\n" +
+      border;
+
+    div.className = "msg bot";
+    div.textContent = boxedText;
+  } else {
+    // user or system
+    div.className = "msg " + who;
+    div.textContent = text;
+  }
+
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
 }
@@ -22,7 +56,7 @@ const introText =
 
 function playIntro(speed = 30) {
   const div = document.createElement("div");
-  div.className = "msg system";
+  div.className = "msg system typing"; // typing = show blinking cursor
   messages.appendChild(div);
 
   let i = 0;
@@ -35,6 +69,7 @@ function playIntro(speed = 30) {
 
     if (i >= introText.length) {
       clearInterval(interval);
+      div.classList.remove("typing"); // stop cursor when done
     }
   }, speed);
 }
