@@ -52,4 +52,70 @@ p {
 /* Console-like lines */
 .msg {
   font-size: 13px;
-  line-height
+  line-height: 1.4;
+  white-space: pre-wrap;  /* keep ASCII layout */
+}
+
+/* Prefix for user messages only */
+.msg.user::before {
+  content: "YOU> ";
+}
+
+/* System lines (intro etc.) – no prefix */
+.msg.system::before {
+  content: "";
+}
+
+/* Blinking cursor for typewriter intro */
+.msg.system.typing::after {
+  content: "_";
+  margin-left: 2px;
+  animation: blink 0.8s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  50.01%, 100% {
+    opacity: 0;
+  }
+}
+
+/* No automatic prefix for bot anymore (we'll render DOGE> in the ASCII box in JS) */
+/* .msg.bot::before is intentionally removed */
+
+/* Input bar */
+#chat-form {
+  display: flex;
+  border-top: 1px solid #ffffff;
+}
+
+/* Input field */
+#input {
+  flex: 1;
+  padding: 6px;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  background: #000000;
+  color: #ffffff;
+}
+
+/* Send button */
+button[type="submit"] {
+  padding: 0 14px;
+  border: none;
+  border-left: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Hover effect */
+button[type="submit"]:hover {
+  background: #ffffff;
+  color: #000000;
+}
