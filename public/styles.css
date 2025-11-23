@@ -81,7 +81,6 @@ p {
 /* BOT replies in classic phosphor green (CRT effect) */
 .msg.bot {
   color: #00ff00;              /* retro terminal green */
-  text-shadow: 0 0 5px #00ff00; /* phosphor glow */
 }
 
 /* Input bar */
