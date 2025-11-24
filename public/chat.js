@@ -24,7 +24,7 @@ function typeWriter(element, text, speed = 15, onComplete) {
 
 // ----- TYPEWRITER INTRO -----
 const introText =
-  "C:\\DOGEOS\\AGENTS> AGENT067.EXE /tweet\n" +
+  "C:\\DOGEOS\\AGENTS> AGENT067.EXE \n" +
   "> HELLO HUMAN NETWORK.\n" +
   "> I AM AGENT-067.\n" +
   "> I HAVE BEEN DEPLOYED TO SERVE THE DOGE.\n" +
