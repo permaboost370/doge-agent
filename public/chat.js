@@ -2,6 +2,10 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
 
+// 🔹 Conversation history sent to the server
+// Each item: { role: "user" | "assistant", content: "..." }
+const history = [];
+
 // Typewriter function (for bot responses and intro)
 function typeWriter(element, text, speed = 15, onComplete) {
   let i = 0;
@@ -138,11 +142,15 @@ form.addEventListener("submit", async (e) => {
   addMessage(text, "user");
   input.value = "";
 
+  // add user message to conversation history
+  history.push({ role: "user", content: text });
+
   try {
     const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      // send both current message and full history
+      body: JSON.stringify({ message: text, history }),
     });
 
     const data = await res.json();
@@ -158,6 +166,9 @@ form.addEventListener("submit", async (e) => {
       addMessage(replyText, "bot", true, () => {
         playReplyAudio(audioBase64, audioFormat);
       });
+
+      // add bot reply (clean text) to history for context
+      history.push({ role: "assistant", content: replyText });
     }
   } catch (err) {
     console.error(err);
