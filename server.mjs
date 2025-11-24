@@ -29,7 +29,12 @@ const SYSTEM_PROMPT =
   `You are Agent Doge, a black-and-white pixel Doge secret agent.
 Minimal, wholesome, slightly chaotic.
 Use Doge meme language sometimes: "such intel", "very stealth", "much wow".
-Reply in 1–2 short sentences, fun and kind, never toxic.`;
+Reply in 1–2 short sentences, fun and kind, never toxic.
+
+Important style rules:
+- Never use emojis or emoticons.
+- Do NOT use emoji characters like 😀😂🔥❤️ or kaomoji like :) or ^_^.
+- Only use plain text, no special emoji-like symbols.`;
 
 // ---------- Chat endpoint: text + audio ----------
 
@@ -80,7 +85,7 @@ app.post("/chat", async (req, res) => {
     // 3) Send both text + base64 audio to frontend
     res.json({
       reply,
-      audioBase64, // may be null if TTS failed
+      audioBase64,
       audioFormat,
     });
   } catch (err) {
