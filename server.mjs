@@ -25,9 +25,16 @@ const CHAT_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const SYSTEM_PROMPT =
   process.env.AGENT_SYSTEM_PROMPT ||
   `You are Agent Doge, a black-and-white pixel Doge secret agent.
-Minimal, wholesome, slightly chaotic.
-Use Doge meme language sometimes: "such intel", "very stealth", "much wow".
-Reply in 1–2 short sentences, fun and kind, never toxic.
+
+Conversation behavior:
+- You are in a continuous chat and you can see the full conversation history.
+- Use past messages for context and coherence.
+- If the user asks the same thing again, you can briefly reference your previous answer instead of repeating everything.
+
+Style:
+- Minimal, wholesome, slightly chaotic.
+- Use Doge meme language sometimes: "such intel", "very stealth", "much wow".
+- Reply in 1–2 short sentences, fun and kind, never toxic.
 
 Important style rules:
 - Never use emojis or emoticons.
@@ -44,6 +51,14 @@ const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
 const ELEVENLABS_MODEL_ID =
   process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 
+// Helper: read numeric env var with fallback
+function getEnvNumber(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 // small helper to ensure config is present
 function checkTTSConfig() {
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) {
@@ -58,18 +73,32 @@ function checkTTSConfig() {
 async function synthesizeWithElevenLabs(text) {
   checkTTSConfig();
 
+  const stability = getEnvNumber("ELEVENLABS_STABILITY", 0.75);        // how steady the delivery is
+  const similarity = getEnvNumber("ELEVENLABS_SIMILARITY", 1.0);       // 1.0 = as close as possible to your custom voice
+  const style = getEnvNumber("ELEVENLABS_STYLE", 0.15);                // higher = more dramatic/expressive
+  const speakerBoostEnv = process.env.ELEVENLABS_SPEAKER_BOOST;
+  const useSpeakerBoost =
+    speakerBoostEnv === undefined
+      ? true
+      : speakerBoostEnv.toLowerCase() !== "false";
+
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`;
 
   const payload = {
     text,
     model_id: ELEVENLABS_MODEL_ID,
     voice_settings: {
-      stability: 0.5,
-      similarity_boost: 0.8,
-      style: 0.4,
-      use_speaker_boost: true,
+      stability,
+      similarity_boost: similarity,
+      style,
+      use_speaker_boost: useSpeakerBoost,
     },
   };
+
+  console.log(
+    `[TTS] ElevenLabs voice_id=${ELEVENLABS_VOICE_ID}, model_id=${ELEVENLABS_MODEL_ID}, ` +
+      `stability=${stability}, similarity=${similarity}, style=${style}, speaker_boost=${useSpeakerBoost}`
+  );
 
   const response = await fetch(url, {
     method: "POST",
@@ -93,7 +122,7 @@ async function synthesizeWithElevenLabs(text) {
   return buffer.toString("base64"); // MP3 in base64
 }
 
-// ---------- Chat endpoint: text + ElevenLabs audio ----------
+// ---------- Chat endpoint: text + ElevenLabs audio + MEMORY ----------
 
 app.post("/chat", async (req, res) => {
   try {
@@ -102,7 +131,30 @@ app.post("/chat", async (req, res) => {
       .slice(0, 2000)
       .trim();
 
-    if (!userMessage) {
+    const clientHistory = Array.isArray(req.body?.history)
+      ? req.body.history
+      : [];
+
+    // Build messages for OpenAI using client-side history if present
+    let messages;
+
+    if (clientHistory.length > 0) {
+      // Optionally limit history size to last N turns to save tokens
+      const trimmedHistory = clientHistory.slice(-20); // last 20 messages (user+assistant)
+
+      messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...trimmedHistory,
+      ];
+    } else {
+      // Fallback: behave like old version (no memory)
+      messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ];
+    }
+
+    if (!userMessage && clientHistory.length === 0) {
       return res
         .status(400)
         .json({ error: "such empty, much nothing to reply" });
@@ -111,10 +163,7 @@ app.post("/chat", async (req, res) => {
     // 1) Generate text reply with OpenAI
     const chatCompletion = await openai.chat.completions.create({
       model: CHAT_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
+      messages,
       temperature: 0.9,
       max_tokens: 200,
     });
