@@ -26,24 +26,15 @@ function getAudioContext() {
   return audioContext;
 }
 
-// Unlock audio on first keydown or click (browser policy)
-window.addEventListener(
-  "keydown",
-  () => {
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === "suspended") ctx.resume();
-  },
-  { once: true }
-);
-
-window.addEventListener(
-  "click",
-  () => {
-    const ctx = getAudioContext();
-    if (ctx && ctx.state === "suspended") ctx.resume();
-  },
-  { once: true }
-);
+// Unlock audio on first keydown or click (browser autoplay policy)
+function unlockAudio() {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === "suspended") {
+    ctx.resume();
+  }
+}
+window.addEventListener("keydown", unlockAudio, { once: true });
+window.addEventListener("click", unlockAudio, { once: true });
 
 // Play a short "keyboard click" sound
 function playTypingClick() {
@@ -105,6 +96,7 @@ function createMessageRow(role, text) {
 
   const prefix = document.createElement("span");
   prefix.classList.add("message-prefix");
+  // You can customize these prompts if you want C:\ style paths
   prefix.textContent = role === "user" ? "YOU> " : "067> ";
 
   const content = document.createElement("span");
@@ -146,7 +138,7 @@ function typeBotText(element, fullText, onDone) {
 function addMessage(text, role = "bot") {
   const row = createMessageRow(role, text);
 
-  // Insert BEFORE typing indicator (which sits above the prompt)
+  // Insert BEFORE the typing indicator (which sits above the prompt)
   messagesEl.insertBefore(row, typingIndicator);
 
   scrollMessagesToBottom();
@@ -165,8 +157,14 @@ function addMessage(text, role = "bot") {
 
 function setLoading(isLoading) {
   if (!typingIndicator) return;
+
   typingIndicator.classList.toggle("hidden", !isLoading);
   input.disabled = isLoading || !DOGEOS_BOOTED;
+
+  // After the reply is done, put the cursor back in the prompt
+  if (!isLoading && DOGEOS_BOOTED) {
+    input.focus();
+  }
 }
 
 // Auto-grow textarea
