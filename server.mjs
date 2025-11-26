@@ -234,11 +234,11 @@ function formatTokenSummary(tokenData, ca) {
       "     STATS:",
       "     Chain: unknown",
       "     Token: unknown (?)",
-      "     Price: unknown",
+      "     Price: not available",
       "     FDV: unknown",
       "     Liquidity: unknown",
       "     Volume 24h: unknown",
-      "     Txns 24h: unknown",
+      "     Txns 24h: not available",
       "     DexScreener: none",
       "- You must NOT give financial advice. Only warn the user to be cautious."
     ].join("\n");
