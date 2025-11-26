@@ -109,6 +109,193 @@ ADDITIONAL RESTRICTIONS:
 - Do NOT use emoji characters like 😀😂🔥❤️ or kaomoji like :) or ^_^.
 - Only use plain text, no emoji-like symbols.`;
 
+// ---------- Contract-address / token analysis helpers ----------
+
+// Format big USD numbers like 50000 => "$50K", 2300000 => "$2.3M"
+function formatCompactUSD(value) {
+  if (value === null || value === undefined) return "unknown";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "unknown";
+
+  const abs = Math.abs(n);
+  let scaled = n;
+  let suffix = "";
+
+  if (abs >= 1e9) {
+    scaled = n / 1e9;
+    suffix = "B";
+  } else if (abs >= 1e6) {
+    scaled = n / 1e6;
+    suffix = "M";
+  } else if (abs >= 1e3) {
+    scaled = n / 1e3;
+    suffix = "K";
+  }
+
+  // fewer decimals for larger numbers
+  let decimals = 2;
+  if (Math.abs(scaled) >= 100) decimals = 0;
+  else if (Math.abs(scaled) >= 10) decimals = 1;
+
+  return "$" + scaled.toFixed(decimals) + suffix;
+}
+
+// Detect both EVM 0x… and Solana-style base58 addresses
+function extractContractInfo(message) {
+  if (!message) return null;
+
+  // EVM-style: 0x + 40 hex chars
+  const evmMatch = message.match(/0x[a-fA-F0-9]{40}/);
+  if (evmMatch) {
+    return { address: evmMatch[0], chainHint: "evm" };
+  }
+
+  // Solana-style: base58, 32–44 chars, no 0/O/I/l
+  const solMatch = message.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/);
+  if (solMatch) {
+    return { address: solMatch[0], chainHint: "solana" };
+  }
+
+  return null;
+}
+
+// Fetch token / pair data from DexScreener for a given CA & chain hint
+async function fetchTokenDataFromDexScreener(address, chainHint) {
+  try {
+    let url;
+    let isNewTokensEndpoint = false;
+
+    if (chainHint === "solana") {
+      url = `https://api.dexscreener.com/tokens/v1/solana/${address}`;
+      isNewTokensEndpoint = true;
+    } else {
+      url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
+    }
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("DexScreener HTTP error:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+
+    // New tokens/v1 endpoint (Solana path)
+    if (isNewTokensEndpoint) {
+      if (!Array.isArray(data) || data.length === 0) return null;
+      const entry = data[0];
+
+      return {
+        chainId: entry.chainId,
+        dexId: entry.dexId,
+        pairAddress: entry.pairAddress,
+        baseToken: entry.baseToken,
+        quoteToken: entry.quoteToken,
+        priceUsd: entry.priceUsd,
+        fdv: entry.fdv,
+        liquidity: entry.liquidity?.usd,
+        volume24h: entry.volume?.h24,
+        txns24h: entry.txns?.h24,
+        url: entry.url,
+      };
+    }
+
+    // Older latest/dex/tokens endpoint (EVM-style)
+    if (!data.pairs || !data.pairs.length) return null;
+    const pair = data.pairs[0];
+
+    return {
+      chainId: pair.chainId,
+      dexId: pair.dexId,
+      pairAddress: pair.pairAddress,
+      baseToken: pair.baseToken,
+      quoteToken: pair.quoteToken,
+      priceUsd: pair.priceUsd,
+      fdv: pair.fdv,
+      liquidity: pair.liquidityUsd ?? pair.liquidity?.usd,
+      volume24h: pair.volume?.h24,
+      txns24h: pair.txns?.h24,
+      url: pair.url,
+    };
+  } catch (err) {
+    console.error("DexScreener error:", err);
+    return null;
+  }
+}
+
+// Turn token data into a system message the model can use
+// and instruct exact reply format: 1 short comment + STATS block
+function formatTokenSummary(tokenData, ca) {
+  if (!tokenData) {
+    return [
+      `On-chain / DEX scan for contract address: ${ca}`,
+      "",
+      "INSTRUCTIONS FOR YOUR REPLY:",
+      "- Data is missing or no active pairs were found.",
+      "- Your reply to the user must be:",
+      "  1) One short sentence comment about the lack of data (meme/agent style).",
+      "  2) Then a block starting with 'STATS:' and one key per line, e.g.:",
+      "     STATS:",
+      "     Chain: unknown",
+      "     Token: unknown (?)",
+      "     Price: unknown",
+      "     FDV: unknown",
+      "     Liquidity: unknown",
+      "     Volume 24h: unknown",
+      "     Txns 24h: unknown",
+      "     DexScreener: none",
+      "- You must NOT give financial advice. Only warn the user to be cautious."
+    ].join("\n");
+  }
+
+  const {
+    chainId,
+    dexId,
+    baseToken,
+    quoteToken,
+    priceUsd,
+    fdv,
+    liquidity,
+    volume24h,
+    txns24h,
+    url,
+  } = tokenData;
+
+  const priceStr = priceUsd ? formatCompactUSD(priceUsd) : "unknown";
+  const fdvStr = fdv ? formatCompactUSD(fdv) : "unknown";
+  const liqStr = liquidity ? formatCompactUSD(liquidity) : "unknown";
+  const volStr = volume24h ? formatCompactUSD(volume24h) : "unknown";
+  const txStr = txns24h ?? "unknown";
+
+  const chain = chainId || "unknown";
+  const dex = dexId || "unknown";
+  const name = baseToken?.name || "Unknown";
+  const symbol = baseToken?.symbol || "?";
+  const quote = quoteToken?.symbol || "?";
+  const urlStr = url || "none";
+
+  return [
+    `On-chain / DEX scan for contract address: ${ca}`,
+    `Internal data: chain=${chain}, dex=${dex}, token=${name} (${symbol}), quote=${quote}, price=${priceStr}, fdv=${fdvStr}, liq=${liqStr}, vol24h=${volStr}, tx24h=${txStr}, url=${urlStr}`,
+    "",
+    "INSTRUCTIONS FOR YOUR REPLY FORMAT:",
+    "- You MUST respond to the user in exactly this structure:",
+    "- First line: ONE short sentence comment in your DogeOS Agent voice, summarizing how the token looks (e.g. 'Such micro-cap, volume tiny, risk very spicy, operative.').",
+    "- Then on the next line, literally write: STATS:",
+    "- Then on separate lines, write these keys exactly in this order:",
+    `  Chain: ${chain}`,
+    `  Token: ${name} (${symbol})`,
+    `  Price: ${priceStr}`,
+    `  FDV: ${fdvStr}`,
+    `  Liquidity: ${liqStr}`,
+    `  Volume 24h: ${volStr}`,
+    `  Txns 24h: ${txStr}`,
+    `  DexScreener: ${urlStr}`,
+    "- DO NOT add bullets or extra commentary after the STATS block.",
+    "- You must NEVER give financial advice or tell the user to buy/sell. You can warn about risk only."
+  ].join("\n");
+}
+
 // ---------- ElevenLabs TTS config ----------
 
 // Required: ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID (set these in Railway)
@@ -141,9 +328,9 @@ function checkTTSConfig() {
 async function synthesizeWithElevenLabs(text) {
   checkTTSConfig();
 
-  const stability = getEnvNumber("ELEVENLABS_STABILITY", 0.75); // how steady the delivery is
-  const similarity = getEnvNumber("ELEVENLABS_SIMILARITY", 1.0); // 1.0 = as close as possible to your custom voice
-  const style = getEnvNumber("ELEVENLABS_STYLE", 0.15); // higher = more dramatic/expressive
+  const stability = getEnvNumber("ELEVENLABS_STABILITY", 0.75);
+  const similarity = getEnvNumber("ELEVENLABS_SIMILARITY", 1.0);
+  const style = getEnvNumber("ELEVENLABS_STYLE", 0.15);
   const speakerBoostEnv = process.env.ELEVENLABS_SPEAKER_BOOST;
   const useSpeakerBoost =
     speakerBoostEnv === undefined
@@ -190,7 +377,15 @@ async function synthesizeWithElevenLabs(text) {
   return buffer.toString("base64"); // MP3 in base64
 }
 
-// ---------- Chat endpoint: text + ElevenLabs audio + MEMORY ----------
+// ---------- TTS cleaning: don't read DexScreener (or any) links ----------
+
+function stripLinksForTTS(text) {
+  if (!text) return text;
+  // Remove all http/https URLs so TTS never reads long links
+  return text.replace(/https?:\/\/\S+/g, "");
+}
+
+// ---------- Chat endpoint: text + ElevenLabs audio + MEMORY + CONTRACT ANALYZER ----------
 
 app.post("/chat", async (req, res) => {
   try {
@@ -203,29 +398,46 @@ app.post("/chat", async (req, res) => {
       ? req.body.history
       : [];
 
-    // Build messages for OpenAI using client-side history if present
-    let messages;
-
-    if (clientHistory.length > 0) {
-      // Optionally limit history size to last N turns to save tokens
-      const trimmedHistory = clientHistory.slice(-20); // last 20 messages (user+assistant)
-
-      messages = [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...trimmedHistory,
-      ];
-    } else {
-      // Fallback: behave like old version (no memory)
-      messages = [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ];
-    }
-
     if (!userMessage && clientHistory.length === 0) {
       return res
         .status(400)
         .json({ error: "such empty, much nothing to reply" });
+    }
+
+    // If the user message contains a contract address, fetch token data
+    let contractAnalysisSystemMessage = null;
+    const contractInfo = extractContractInfo(userMessage);
+    if (contractInfo) {
+      console.log(
+        `[CA] Detected ${contractInfo.chainHint} address:`,
+        contractInfo.address
+      );
+      const tokenData = await fetchTokenDataFromDexScreener(
+        contractInfo.address,
+        contractInfo.chainHint
+      );
+      contractAnalysisSystemMessage = formatTokenSummary(
+        tokenData,
+        contractInfo.address
+      );
+    }
+
+    // Build messages for OpenAI using client-side history if present
+    const messages = [{ role: "system", content: SYSTEM_PROMPT }];
+
+    if (clientHistory.length > 0) {
+      const trimmedHistory = clientHistory.slice(-20);
+      messages.push(...trimmedHistory);
+    } else {
+      messages.push({ role: "user", content: userMessage });
+    }
+
+    // Inject contract analysis context (if any) as an extra system message
+    if (contractAnalysisSystemMessage) {
+      messages.push({
+        role: "system",
+        content: contractAnalysisSystemMessage,
+      });
     }
 
     // 1) Generate text reply with OpenAI
@@ -233,28 +445,28 @@ app.post("/chat", async (req, res) => {
       model: CHAT_MODEL,
       messages,
       temperature: 0.9,
-      max_tokens: 200,
+      max_tokens: 220,
     });
 
     const reply =
       chatCompletion.choices?.[0]?.message?.content?.trim() ||
       "such silence, much empty";
 
-    // 2) Generate TTS audio from reply using ElevenLabs
+    // 2) Generate TTS audio from reply, with links stripped out
     let audioBase64 = null;
     const audioFormat = "mp3";
 
     try {
-      audioBase64 = await synthesizeWithElevenLabs(reply);
+      const safeForTTS = stripLinksForTTS(reply);
+      audioBase64 = await synthesizeWithElevenLabs(safeForTTS);
     } catch (ttsError) {
       console.error("ElevenLabs TTS error:", ttsError);
-      // We still return the text even if audio fails
     }
 
     // 3) Send both text + base64 audio to frontend
     res.json({
       reply,
-      audioBase64, // may be null if TTS failed
+      audioBase64,
       audioFormat,
     });
   } catch (err) {
