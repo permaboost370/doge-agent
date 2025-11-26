@@ -132,7 +132,6 @@ function formatCompactUSD(value) {
     suffix = "K";
   }
 
-  // fewer decimals for larger numbers
   let decimals = 2;
   if (Math.abs(scaled) >= 100) decimals = 0;
   else if (Math.abs(scaled) >= 10) decimals = 1;
@@ -195,7 +194,6 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
         fdv: entry.fdv,
         liquidity: entry.liquidity?.usd,
         volume24h: entry.volume?.h24,
-        txns24h: entry.txns?.h24,
         url: entry.url,
       };
     }
@@ -214,7 +212,6 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
       fdv: pair.fdv,
       liquidity: pair.liquidityUsd ?? pair.liquidity?.usd,
       volume24h: pair.volume?.h24,
-      txns24h: pair.txns?.h24,
       url: pair.url,
     };
   } catch (err) {
@@ -238,11 +235,9 @@ function formatTokenSummary(tokenData, ca) {
       "     STATS:",
       "     Chain: unknown",
       "     Token: unknown (?)",
-      "     Price: unknown",
       "     FDV: unknown",
       "     Liquidity: unknown",
       "     Volume 24h: unknown",
-      "     Txns 24h: unknown",
       "     DexScreener: none",
       "- You must NOT give financial advice. Only warn the user to be cautious."
     ].join("\n");
@@ -257,7 +252,6 @@ function formatTokenSummary(tokenData, ca) {
     fdv,
     liquidity,
     volume24h,
-    txns24h,
     url,
   } = tokenData;
 
@@ -265,7 +259,6 @@ function formatTokenSummary(tokenData, ca) {
   const fdvStr = fdv ? formatCompactUSD(fdv) : "unknown";
   const liqStr = liquidity ? formatCompactUSD(liquidity) : "unknown";
   const volStr = volume24h ? formatCompactUSD(volume24h) : "unknown";
-  const txStr = txns24h ?? "unknown";
 
   const chain = chainId || "unknown";
   const dex = dexId || "unknown";
@@ -276,7 +269,7 @@ function formatTokenSummary(tokenData, ca) {
 
   return [
     `On-chain / DEX scan for contract address: ${ca}`,
-    `Internal data: chain=${chain}, dex=${dex}, token=${name} (${symbol}), quote=${quote}, price=${priceStr}, fdv=${fdvStr}, liq=${liqStr}, vol24h=${volStr}, tx24h=${txStr}, url=${urlStr}`,
+    `Internal data: chain=${chain}, dex=${dex}, token=${name} (${symbol}), quote=${quote}, price=${priceStr}, fdv=${fdvStr}, liq=${liqStr}, vol24h=${volStr}, url=${urlStr}`,
     "",
     "INSTRUCTIONS FOR YOUR REPLY FORMAT:",
     "- You MUST respond to the user in exactly this structure:",
@@ -285,11 +278,9 @@ function formatTokenSummary(tokenData, ca) {
     "- Then on separate lines, write these keys exactly in this order:",
     `  Chain: ${chain}`,
     `  Token: ${name} (${symbol})`,
-    `  Price: ${priceStr}`,
     `  FDV: ${fdvStr}`,
     `  Liquidity: ${liqStr}`,
     `  Volume 24h: ${volStr}`,
-    `  Txns 24h: ${txStr}`,
     `  DexScreener: ${urlStr}`,
     "- DO NOT add bullets or extra commentary after the STATS block.",
     "- You must NEVER give financial advice or tell the user to buy/sell. You can warn about risk only."
@@ -298,15 +289,12 @@ function formatTokenSummary(tokenData, ca) {
 
 // ---------- ElevenLabs TTS config ----------
 
-// Required: ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID (set these in Railway)
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
 
-// Optional: model ID
 const ELEVENLABS_MODEL_ID =
   process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 
-// Helper: read numeric env var with fallback
 function getEnvNumber(name, fallback) {
   const raw = process.env[name];
   if (raw === undefined || raw === null || raw === "") return fallback;
@@ -314,7 +302,6 @@ function getEnvNumber(name, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// small helper to ensure config is present
 function checkTTSConfig() {
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) {
     throw new Error(
@@ -374,7 +361,21 @@ async function synthesizeWithElevenLabs(text) {
 
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  return buffer.toString("base64"); // MP3 in base64
+  return buffer.toString("base64");
+}
+
+// ---------- TTS cleaning: never read contract-like strings ----------
+
+function stripContractLikeStrings(text) {
+  if (!text) return text;
+
+  // Remove / mask EVM addresses
+  let out = text.replace(/0x[a-fA-F0-9]{40}/g, "[contract]");
+
+  // Remove / mask Solana-like base58 addresses
+  out = out.replace(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g, "[address]");
+
+  return out;
 }
 
 // ---------- Chat endpoint: text + ElevenLabs audio + MEMORY + CONTRACT ANALYZER ----------
@@ -444,12 +445,13 @@ app.post("/chat", async (req, res) => {
       chatCompletion.choices?.[0]?.message?.content?.trim() ||
       "such silence, much empty";
 
-    // 2) Generate TTS audio from reply using ElevenLabs
+    // 2) Generate TTS audio from a cleaned version (no raw contracts)
     let audioBase64 = null;
     const audioFormat = "mp3";
 
     try {
-      audioBase64 = await synthesizeWithElevenLabs(reply);
+      const ttsText = stripContractLikeStrings(reply);
+      audioBase64 = await synthesizeWithElevenLabs(ttsText);
     } catch (ttsError) {
       console.error("ElevenLabs TTS error:", ttsError);
     }
