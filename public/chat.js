@@ -5,7 +5,6 @@ const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
 const messagesEl = document.getElementById("messages");
 const typingIndicator = document.getElementById("typing-indicator");
-const sendBtn = document.getElementById("send-btn");
 const bootScreen = document.getElementById("boot-screen");
 const bootTextEl = document.getElementById("boot-text");
 const bootCursorEl = document.querySelector(".boot-cursor");
@@ -16,7 +15,7 @@ const history = [];
 // Boot state
 let DOGEOS_BOOTED = false;
 
-// Audio context for typing + beep
+// ===== Audio context + unlock (typing + beep) =====
 let audioContext = null;
 function getAudioContext() {
   if (!audioContext) {
@@ -26,6 +25,25 @@ function getAudioContext() {
   }
   return audioContext;
 }
+
+// Unlock audio on first keydown or click (browser policy)
+window.addEventListener(
+  "keydown",
+  () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") ctx.resume();
+  },
+  { once: true }
+);
+
+window.addEventListener(
+  "click",
+  () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") ctx.resume();
+  },
+  { once: true }
+);
 
 // Play a short "keyboard click" sound
 function playTypingClick() {
@@ -128,9 +146,8 @@ function typeBotText(element, fullText, onDone) {
 function addMessage(text, role = "bot") {
   const row = createMessageRow(role, text);
 
-  // Insert BEFORE the typing indicator (which sits above the prompt)
-  const typingNode = typingIndicator;
-  messagesEl.insertBefore(row, typingNode);
+  // Insert BEFORE typing indicator (which sits above the prompt)
+  messagesEl.insertBefore(row, typingIndicator);
 
   scrollMessagesToBottom();
 
@@ -150,7 +167,6 @@ function setLoading(isLoading) {
   if (!typingIndicator) return;
   typingIndicator.classList.toggle("hidden", !isLoading);
   input.disabled = isLoading || !DOGEOS_BOOTED;
-  sendBtn.disabled = isLoading || !DOGEOS_BOOTED;
 }
 
 // Auto-grow textarea
@@ -209,7 +225,6 @@ const bootLines = [
 function runBootSequence() {
   DOGEOS_BOOTED = false;
   input.disabled = true;
-  sendBtn.disabled = true;
 
   let lineIndex = 0;
   let charIndex = 0;
@@ -224,9 +239,9 @@ function runBootSequence() {
         }
         DOGEOS_BOOTED = true;
         input.disabled = false;
-        sendBtn.disabled = false;
         input.placeholder = "enter command...";
         showWelcomeMessage();
+        input.focus();
       }, 450);
       return;
     }
