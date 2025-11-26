@@ -1,28 +1,56 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Muchdogeagent Chat</title>
+  <meta charset="utf-8" />
+  <title>Agent-067 • DogeOS Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="chat-wrapper">
-    <h1>Doge Agent</h1>
-    <p>Much chat. Very wisdom. So wow.</p>
+  <div id="app">
+    <!-- Top bar -->
+    <header class="app-header">
+      <div class="app-header-left">
+        <div class="logo-circle">D</div>
+        <div class="app-title">
+          <div class="app-name">Agent-067</div>
+          <div class="app-subtitle">DogeOS Intelligence Console</div>
+        </div>
+      </div>
+      <div class="app-header-right">
+        <span class="status-dot status-online"></span>
+        <span class="status-text">Online</span>
+      </div>
+    </header>
 
-    <div id="chat-container">
-      <div id="messages" class="messages"></div>
-      <form id="chat-form" autocomplete="off">
-        <input
+    <!-- Main chat area -->
+    <main class="app-main">
+      <div class="chat-shell">
+        <div id="messages" class="messages"></div>
+        <div id="typing-indicator" class="typing-indicator hidden">
+          Agent-067 is thinking…
+        </div>
+      </div>
+    </main>
+
+    <!-- Input area -->
+    <footer class="app-footer">
+      <form id="chat-form" class="chat-input-row">
+        <textarea
           id="input"
-          type="text"
-          placeholder="Type your message..."
-          autofocus
-        />
-        <button type="submit">Send</button>
+          rows="1"
+          placeholder="Ask Agent-067 anything about DogeOS, crypto, or the mission…"
+          autocomplete="off"
+        ></textarea>
+        <button type="submit" id="send-btn" aria-label="Send message">
+          <span class="send-label">Send</span>
+          <span class="send-icon">↗</span>
+        </button>
       </form>
-    </div>
+      <div class="footer-meta">
+        Powered by DogeOS • Uses OpenAI & ElevenLabs • Press <strong>Enter</strong> to send, <strong>Shift+Enter</strong> for a new line
+      </div>
+    </footer>
   </div>
 
   <script src="chat.js"></script>
