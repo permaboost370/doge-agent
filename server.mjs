@@ -220,8 +220,7 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
   }
 }
 
-// Turn token data into a system message the model can use
-// and instruct exact reply format: 1 short comment + STATS block
+// Build system message that forces a short comment + STATS block
 function formatTokenSummary(tokenData, ca) {
   if (!tokenData) {
     return [
@@ -291,7 +290,6 @@ function formatTokenSummary(tokenData, ca) {
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
-
 const ELEVENLABS_MODEL_ID =
   process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 
@@ -339,144 +337,4 @@ async function synthesizeWithElevenLabs(text) {
 
   console.log(
     `[TTS] ElevenLabs voice_id=${ELEVENLABS_VOICE_ID}, model_id=${ELEVENLABS_MODEL_ID}, ` +
-      `stability=${stability}, similarity=${similarity}, style=${style}, speaker_boost=${useSpeakerBoost}`
-  );
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "xi-api-key": ELEVENLABS_API_KEY,
-      "Content-Type": "application/json",
-      Accept: "audio/mpeg",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    throw new Error(
-      `ElevenLabs TTS failed: ${response.status} ${response.statusText} ${errorText}`
-    );
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  return buffer.toString("base64");
-}
-
-// ---------- TTS cleaning: never read contract-like strings ----------
-
-function stripContractLikeStrings(text) {
-  if (!text) return text;
-
-  // Remove / mask EVM addresses
-  let out = text.replace(/0x[a-fA-F0-9]{40}/g, "[contract]");
-
-  // Remove / mask Solana-like base58 addresses
-  out = out.replace(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g, "[address]");
-
-  return out;
-}
-
-// ---------- Chat endpoint: text + ElevenLabs audio + MEMORY + CONTRACT ANALYZER ----------
-
-app.post("/chat", async (req, res) => {
-  try {
-    const userMessage = (req.body?.message ?? "")
-      .toString()
-      .slice(0, 2000)
-      .trim();
-
-    const clientHistory = Array.isArray(req.body?.history)
-      ? req.body.history
-      : [];
-
-    if (!userMessage && clientHistory.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "such empty, much nothing to reply" });
-    }
-
-    // If the user message contains a contract address, fetch token data
-    let contractAnalysisSystemMessage = null;
-    const contractInfo = extractContractInfo(userMessage);
-    if (contractInfo) {
-      console.log(
-        `[CA] Detected ${contractInfo.chainHint} address:`,
-        contractInfo.address
-      );
-      const tokenData = await fetchTokenDataFromDexScreener(
-        contractInfo.address,
-        contractInfo.chainHint
-      );
-      contractAnalysisSystemMessage = formatTokenSummary(
-        tokenData,
-        contractInfo.address
-      );
-    }
-
-    // Build messages for OpenAI using client-side history if present
-    const messages = [{ role: "system", content: SYSTEM_PROMPT }];
-
-    if (clientHistory.length > 0) {
-      const trimmedHistory = clientHistory.slice(-20);
-      messages.push(...trimmedHistory);
-    } else {
-      messages.push({ role: "user", content: userMessage });
-    }
-
-    // Inject contract analysis context (if any) as an extra system message
-    if (contractAnalysisSystemMessage) {
-      messages.push({
-        role: "system",
-        content: contractAnalysisSystemMessage,
-      });
-    }
-
-    // 1) Generate text reply with OpenAI
-    const chatCompletion = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      messages,
-      temperature: 0.9,
-      max_tokens: 220,
-    });
-
-    const reply =
-      chatCompletion.choices?.[0]?.message?.content?.trim() ||
-      "such silence, much empty";
-
-    // 2) Generate TTS audio from a cleaned version (no raw contracts)
-    let audioBase64 = null;
-    const audioFormat = "mp3";
-
-    try {
-      const ttsText = stripContractLikeStrings(reply);
-      audioBase64 = await synthesizeWithElevenLabs(ttsText);
-    } catch (ttsError) {
-      console.error("ElevenLabs TTS error:", ttsError);
-    }
-
-    // 3) Send both text + base64 audio to frontend
-    res.json({
-      reply,
-      audioBase64,
-      audioFormat,
-    });
-  } catch (err) {
-    console.error("Chat error:", err);
-    res
-      .status(500)
-      .json({ error: "DogeOS Agent confused, something broke." });
-  }
-});
-
-// ---------- Frontend ----------
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`DogeOS Agent listening on port ${PORT}`);
-});
+      `stability=${stability}, similarity=${similarity}, style=${style}, speaker
