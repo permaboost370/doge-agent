@@ -111,6 +111,35 @@ ADDITIONAL RESTRICTIONS:
 
 // ---------- Contract-address / token analysis helpers ----------
 
+// Format big USD numbers like 50000 => "$50K", 2300000 => "$2.3M"
+function formatCompactUSD(value) {
+  if (value === null || value === undefined) return "unknown";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "unknown";
+
+  const abs = Math.abs(n);
+  let scaled = n;
+  let suffix = "";
+
+  if (abs >= 1e9) {
+    scaled = n / 1e9;
+    suffix = "B";
+  } else if (abs >= 1e6) {
+    scaled = n / 1e6;
+    suffix = "M";
+  } else if (abs >= 1e3) {
+    scaled = n / 1e3;
+    suffix = "K";
+  }
+
+  // fewer decimals for larger numbers
+  let decimals = 2;
+  if (Math.abs(scaled) >= 100) decimals = 0;
+  else if (Math.abs(scaled) >= 10) decimals = 1;
+
+  return "$" + scaled.toFixed(decimals) + suffix;
+}
+
 // Detect both EVM 0x… and Solana-style base58 addresses
 function extractContractInfo(message) {
   if (!message) return null;
@@ -137,13 +166,9 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
     let isNewTokensEndpoint = false;
 
     if (chainHint === "solana") {
-      // New docs endpoint for one or multiple tokens by chain and tokenAddress
-      // https://api.dexscreener.com/tokens/v1/{chainId}/{tokenAddresses}
       url = `https://api.dexscreener.com/tokens/v1/solana/${address}`;
       isNewTokensEndpoint = true;
     } else {
-      // Fallback for EVM chains – DexScreener auto-detects on this legacy endpoint
-      // Still widely used in the wild and simpler than guessing chainId.
       url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
     }
 
@@ -155,7 +180,7 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
 
     const data = await res.json();
 
-    // Handle new tokens/v1 endpoint (Solana path)
+    // New tokens/v1 endpoint (Solana path)
     if (isNewTokensEndpoint) {
       if (!Array.isArray(data) || data.length === 0) return null;
       const entry = data[0];
@@ -164,8 +189,8 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
         chainId: entry.chainId,
         dexId: entry.dexId,
         pairAddress: entry.pairAddress,
-        baseToken: entry.baseToken,   // { address, name, symbol }
-        quoteToken: entry.quoteToken, // usually SOL/USDC etc
+        baseToken: entry.baseToken,
+        quoteToken: entry.quoteToken,
         priceUsd: entry.priceUsd,
         fdv: entry.fdv,
         liquidity: entry.liquidity?.usd,
@@ -175,7 +200,7 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
       };
     }
 
-    // Handle older latest/dex/tokens endpoint (EVM-style)
+    // Older latest/dex/tokens endpoint (EVM-style)
     if (!data.pairs || !data.pairs.length) return null;
     const pair = data.pairs[0];
 
@@ -199,12 +224,27 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
 }
 
 // Turn token data into a system message the model can use
+// and instruct exact reply format: 1 short comment + STATS block
 function formatTokenSummary(tokenData, ca) {
   if (!tokenData) {
     return [
       `On-chain / DEX scan for contract address: ${ca}`,
-      "No active pairs or market data were found. The token might be extremely new, illiquid, or on an unsupported chain.",
-      "You must NOT give any financial advice. You may only explain that data is missing and warn the user to be cautious."
+      "",
+      "INSTRUCTIONS FOR YOUR REPLY:",
+      "- Data is missing or no active pairs were found.",
+      "- Your reply to the user must be:",
+      "  1) One short sentence comment about the lack of data (meme/agent style).",
+      "  2) Then a block starting with 'STATS:' and one key per line, e.g.:",
+      "     STATS:",
+      "     Chain: unknown",
+      "     Token: unknown (?)",
+      "     Price: unknown",
+      "     FDV: unknown",
+      "     Liquidity: unknown",
+      "     Volume 24h: unknown",
+      "     Txns 24h: unknown",
+      "     DexScreener: none",
+      "- You must NOT give financial advice. Only warn the user to be cautious."
     ].join("\n");
   }
 
@@ -221,30 +261,39 @@ function formatTokenSummary(tokenData, ca) {
     url,
   } = tokenData;
 
+  const priceStr = priceUsd ? formatCompactUSD(priceUsd) : "unknown";
+  const fdvStr = fdv ? formatCompactUSD(fdv) : "unknown";
+  const liqStr = liquidity ? formatCompactUSD(liquidity) : "unknown";
+  const volStr = volume24h ? formatCompactUSD(volume24h) : "unknown";
+  const txStr = txns24h ?? "unknown";
+
+  const chain = chainId || "unknown";
+  const dex = dexId || "unknown";
+  const name = baseToken?.name || "Unknown";
+  const symbol = baseToken?.symbol || "?";
+  const quote = quoteToken?.symbol || "?";
+  const urlStr = url || "none";
+
   return [
     `On-chain / DEX scan for contract address: ${ca}`,
-    `Network: ${chainId || "unknown"} | DEX: ${dexId || "unknown"}`,
-    `Token: ${baseToken?.name || "Unknown"} (${baseToken?.symbol || "?"})`,
-    `Quote: ${quoteToken?.symbol || "?"}`,
-    `Approx price (USD): ${priceUsd ? "$" + Number(priceUsd).toFixed(8) : "unknown"}`,
-    `FDV (fully diluted valuation, USD): ${
-      fdv ? "$" + fdv.toLocaleString() : "unknown"
-    }`,
-    `Liquidity (USD): ${
-      liquidity ? "$" + liquidity.toLocaleString() : "unknown"
-    }`,
-    `Volume (24h, USD): ${
-      volume24h ? "$" + volume24h.toLocaleString() : "unknown"
-    }`,
-    `Transactions (24h): ${txns24h ?? "unknown"}`,
-    url ? `DexScreener pair URL: ${url}` : "",
+    `Internal data: chain=${chain}, dex=${dex}, token=${name} (${symbol}), quote=${quote}, price=${priceStr}, fdv=${fdvStr}, liq=${liqStr}, vol24h=${volStr}, tx24h=${txStr}, url=${urlStr}`,
     "",
-    "You are an AI agent in a meme terminal. Use this data to explain what you see in plain language.",
-    "Highlight risks such as very low liquidity, tiny volume, or weird FDV.",
-    "You must NEVER give financial advice, price predictions, or tell the user to buy/sell. Always tell them to do their own research."
-  ]
-    .filter(Boolean)
-    .join("\n");
+    "INSTRUCTIONS FOR YOUR REPLY FORMAT:",
+    "- You MUST respond to the user in exactly this structure:",
+    "- First line: ONE short sentence comment in your DogeOS Agent voice, summarizing how the token looks (e.g. 'Such micro-cap, volume tiny, risk very spicy, operative.').",
+    "- Then on the next line, literally write: STATS:",
+    "- Then on separate lines, write these keys exactly in this order:",
+    `  Chain: ${chain}`,
+    `  Token: ${name} (${symbol})`,
+    `  Price: ${priceStr}`,
+    `  FDV: ${fdvStr}`,
+    `  Liquidity: ${liqStr}`,
+    `  Volume 24h: ${volStr}`,
+    `  Txns 24h: ${txStr}`,
+    `  DexScreener: ${urlStr}`,
+    "- DO NOT add bullets or extra commentary after the STATS block.",
+    "- You must NEVER give financial advice or tell the user to buy/sell. You can warn about risk only."
+  ].join("\n");
 }
 
 // ---------- ElevenLabs TTS config ----------
@@ -279,9 +328,9 @@ function checkTTSConfig() {
 async function synthesizeWithElevenLabs(text) {
   checkTTSConfig();
 
-  const stability = getEnvNumber("ELEVENLABS_STABILITY", 0.75); // how steady the delivery is
-  const similarity = getEnvNumber("ELEVENLABS_SIMILARITY", 1.0); // 1.0 = as close as possible to your custom voice
-  const style = getEnvNumber("ELEVENLABS_STYLE", 0.15); // higher = more dramatic/expressive
+  const stability = getEnvNumber("ELEVENLABS_STABILITY", 0.75);
+  const similarity = getEnvNumber("ELEVENLABS_SIMILARITY", 1.0);
+  const style = getEnvNumber("ELEVENLABS_STYLE", 0.15);
   const speakerBoostEnv = process.env.ELEVENLABS_SPEAKER_BOOST;
   const useSpeakerBoost =
     speakerBoostEnv === undefined
@@ -369,10 +418,9 @@ app.post("/chat", async (req, res) => {
     const messages = [{ role: "system", content: SYSTEM_PROMPT }];
 
     if (clientHistory.length > 0) {
-      const trimmedHistory = clientHistory.slice(-20); // last 20 messages (user+assistant)
+      const trimmedHistory = clientHistory.slice(-20);
       messages.push(...trimmedHistory);
     } else {
-      // no history sent by client: add the current user message explicitly
       messages.push({ role: "user", content: userMessage });
     }
 
@@ -389,7 +437,7 @@ app.post("/chat", async (req, res) => {
       model: CHAT_MODEL,
       messages,
       temperature: 0.9,
-      max_tokens: 200,
+      max_tokens: 220,
     });
 
     const reply =
@@ -404,13 +452,12 @@ app.post("/chat", async (req, res) => {
       audioBase64 = await synthesizeWithElevenLabs(reply);
     } catch (ttsError) {
       console.error("ElevenLabs TTS error:", ttsError);
-      // Still return the text even if audio fails
     }
 
     // 3) Send both text + base64 audio to frontend
     res.json({
       reply,
-      audioBase64, // may be null if TTS failed
+      audioBase64,
       audioFormat,
     });
   } catch (err) {
