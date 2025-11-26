@@ -29,13 +29,13 @@
 
       <!-- Scrollable terminal area: messages + typing + prompt all inside -->
       <div id="messages" class="messages">
-        <!-- message rows will be injected above this -->
 
+        <!-- Typing indicator (stays just above the prompt) -->
         <div id="typing-indicator" class="typing-indicator hidden">
           067&gt; processing <span class="typing-cursor">▉</span>
         </div>
 
-        <!-- Terminal prompt (command line) -->
+        <!-- Terminal prompt (command line INSIDE screen) -->
         <form id="chat-form" class="prompt-row">
           <span class="message-prefix prompt-prefix">YOU&gt; </span>
           <textarea
@@ -45,10 +45,8 @@
             spellcheck="false"
             placeholder="enter command..."
           ></textarea>
-          <button type="submit" id="send-btn" aria-label="Execute command">
-            ENTER
-          </button>
         </form>
+
       </div>
     </div>
   </div>
