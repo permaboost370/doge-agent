@@ -132,7 +132,6 @@ function formatCompactUSD(value) {
     suffix = "K";
   }
 
-  // fewer decimals for larger numbers
   let decimals = 2;
   if (Math.abs(scaled) >= 100) decimals = 0;
   else if (Math.abs(scaled) >= 10) decimals = 1;
@@ -157,6 +156,29 @@ function extractContractInfo(message) {
   }
 
   return null;
+}
+
+// Extract website + telegram from DexScreener socials array
+function extractSocialLinks(socials) {
+  let websiteUrl = null;
+  let telegramUrl = null;
+
+  if (!Array.isArray(socials)) return { websiteUrl, telegramUrl };
+
+  for (const s of socials) {
+    const type = (s?.type || s?.platform || "").toString().toLowerCase();
+    const url = s?.url || s?.href || "";
+    if (!url) continue;
+
+    if (!websiteUrl && (type.includes("website") || type === "site")) {
+      websiteUrl = url;
+    }
+    if (!telegramUrl && (type.includes("telegram") || type === "tg")) {
+      telegramUrl = url;
+    }
+  }
+
+  return { websiteUrl, telegramUrl };
 }
 
 // Fetch token / pair data from DexScreener for a given CA & chain hint
@@ -185,16 +207,23 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
       if (!Array.isArray(data) || data.length === 0) return null;
       const entry = data[0];
 
+      const { websiteUrl, telegramUrl } = extractSocialLinks(
+        entry?.info?.socials
+      );
+
       return {
         chainId: entry.chainId,
         dexId: entry.dexId,
         pairAddress: entry.pairAddress,
         baseToken: entry.baseToken,
         quoteToken: entry.quoteToken,
+        priceUsd: entry.priceUsd,
         fdv: entry.fdv,
         liquidity: entry.liquidity?.usd,
         volume24h: entry.volume?.h24,
         url: entry.url,
+        websiteUrl,
+        telegramUrl,
       };
     }
 
@@ -202,16 +231,23 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
     if (!data.pairs || !data.pairs.length) return null;
     const pair = data.pairs[0];
 
+    const { websiteUrl, telegramUrl } = extractSocialLinks(
+      pair?.info?.socials
+    );
+
     return {
       chainId: pair.chainId,
       dexId: pair.dexId,
       pairAddress: pair.pairAddress,
       baseToken: pair.baseToken,
       quoteToken: pair.quoteToken,
+      priceUsd: pair.priceUsd,
       fdv: pair.fdv,
       liquidity: pair.liquidityUsd ?? pair.liquidity?.usd,
       volume24h: pair.volume?.h24,
       url: pair.url,
+      websiteUrl,
+      telegramUrl,
     };
   } catch (err) {
     console.error("DexScreener error:", err);
@@ -220,7 +256,7 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
 }
 
 // Turn token data into a system message the model can use
-// and instruct exact reply format: 1 short comment + STATS block
+// and instruct exact reply format: 1 short comment + STATS block (with website & telegram)
 function formatTokenSummary(tokenData, ca) {
   if (!tokenData) {
     return [
@@ -234,11 +270,11 @@ function formatTokenSummary(tokenData, ca) {
       "     STATS:",
       "     Chain: unknown",
       "     Token: unknown (?)",
-      "     Price: not available",
       "     FDV: unknown",
       "     Liquidity: unknown",
       "     Volume 24h: unknown",
-      "     Txns 24h: not available",
+      "     Website: none",
+      "     Telegram: none",
       "     DexScreener: none",
       "- You must NOT give financial advice. Only warn the user to be cautious."
     ].join("\n");
@@ -253,15 +289,15 @@ function formatTokenSummary(tokenData, ca) {
     fdv,
     liquidity,
     volume24h,
-    txns24h,
     url,
+    websiteUrl,
+    telegramUrl,
   } = tokenData;
 
   const priceStr = priceUsd ? formatCompactUSD(priceUsd) : "unknown";
   const fdvStr = fdv ? formatCompactUSD(fdv) : "unknown";
   const liqStr = liquidity ? formatCompactUSD(liquidity) : "unknown";
   const volStr = volume24h ? formatCompactUSD(volume24h) : "unknown";
-  const txStr = txns24h ?? "unknown";
 
   const chain = chainId || "unknown";
   const dex = dexId || "unknown";
@@ -269,10 +305,12 @@ function formatTokenSummary(tokenData, ca) {
   const symbol = baseToken?.symbol || "?";
   const quote = quoteToken?.symbol || "?";
   const urlStr = url || "none";
+  const websiteStr = websiteUrl || "none";
+  const telegramStr = telegramUrl || "none";
 
   return [
     `On-chain / DEX scan for contract address: ${ca}`,
-    `Internal data: chain=${chain}, dex=${dex}, token=${name} (${symbol}), quote=${quote}, price=${priceStr}, fdv=${fdvStr}, liq=${liqStr}, vol24h=${volStr}, tx24h=${txStr}, url=${urlStr}`,
+    `Internal data: chain=${chain}, dex=${dex}, token=${name} (${symbol}), quote=${quote}, price=${priceStr}, fdv=${fdvStr}, liq=${liqStr}, vol24h=${volStr}, url=${urlStr}, website=${websiteStr}, telegram=${telegramStr}`,
     "",
     "INSTRUCTIONS FOR YOUR REPLY FORMAT:",
     "- You MUST respond to the user in exactly this structure:",
@@ -281,11 +319,11 @@ function formatTokenSummary(tokenData, ca) {
     "- Then on separate lines, write these keys exactly in this order:",
     `  Chain: ${chain}`,
     `  Token: ${name} (${symbol})`,
-    `  Price: ${priceStr}`,
     `  FDV: ${fdvStr}`,
     `  Liquidity: ${liqStr}`,
     `  Volume 24h: ${volStr}`,
-    `  Txns 24h: ${txStr}`,
+    `  Website: ${websiteStr}`,
+    `  Telegram: ${telegramStr}`,
     `  DexScreener: ${urlStr}`,
     "- DO NOT add bullets or extra commentary after the STATS block.",
     "- You must NEVER give financial advice or tell the user to buy/sell. You can warn about risk only."
@@ -294,15 +332,11 @@ function formatTokenSummary(tokenData, ca) {
 
 // ---------- ElevenLabs TTS config ----------
 
-// Required: ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID (set these in Railway)
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
-
-// Optional: model ID
 const ELEVENLABS_MODEL_ID =
   process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 
-// Helper: read numeric env var with fallback
 function getEnvNumber(name, fallback) {
   const raw = process.env[name];
   if (raw === undefined || raw === null || raw === "") return fallback;
@@ -310,7 +344,6 @@ function getEnvNumber(name, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// small helper to ensure config is present
 function checkTTSConfig() {
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) {
     throw new Error(
@@ -370,15 +403,25 @@ async function synthesizeWithElevenLabs(text) {
 
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  return buffer.toString("base64"); // MP3 in base64
+  return buffer.toString("base64");
 }
 
-// ---------- TTS cleaning: don't read DexScreener (or any) links ----------
+// ---------- TTS cleaning: don't read contracts or any links ----------
 
-function stripLinksForTTS(text) {
+function stripSensitiveForTTS(text) {
   if (!text) return text;
-  // Remove all http/https URLs so TTS never reads long links
-  return text.replace(/https?:\/\/\S+/g, "");
+  let out = text;
+
+  // Mask EVM addresses
+  out = out.replace(/0x[a-fA-F0-9]{40}/g, "[contract]");
+
+  // Mask Solana-like base58 addresses
+  out = out.replace(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g, "[address]");
+
+  // Remove ALL URLs (DexScreener, website, telegram, etc.) from TTS
+  out = out.replace(/https?:\/\/\S+/g, "");
+
+  return out;
 }
 
 // ---------- Chat endpoint: text + ElevenLabs audio + MEMORY + CONTRACT ANALYZER ----------
@@ -448,12 +491,12 @@ app.post("/chat", async (req, res) => {
       chatCompletion.choices?.[0]?.message?.content?.trim() ||
       "such silence, much empty";
 
-    // 2) Generate TTS audio from reply, with links stripped out
+    // 2) Generate TTS audio from reply, with links + contracts stripped out
     let audioBase64 = null;
     const audioFormat = "mp3";
 
     try {
-      const safeForTTS = stripLinksForTTS(reply);
+      const safeForTTS = stripSensitiveForTTS(reply);
       audioBase64 = await synthesizeWithElevenLabs(safeForTTS);
     } catch (ttsError) {
       console.error("ElevenLabs TTS error:", ttsError);
