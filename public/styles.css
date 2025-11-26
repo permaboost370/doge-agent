@@ -1,4 +1,4 @@
-/* ===== DOGEOS-067 PURE TERMINAL UI WITH CRT EFFECT (CMD-LIKE FLOW) ===== */
+/* ===== DOGEOS-067 CMD-STYLE TERMINAL UI ===== */
 
 *,
 *::before,
@@ -9,13 +9,13 @@
 }
 
 :root {
-  --bg-main: #000000;
-  --text-main: #00ff41; /* terminal green */
-  --text-muted: #008f11;
-  --accent: #00ff41;
-  --border-subtle: #003b00;
-  font-family: "VT323", monospace;
-  font-size: 18px;
+  --bg-main: #0c0c0c;          /* cmd-like background */
+  --text-main: #f2f2f2;        /* main text */
+  --text-muted: #aaaaaa;       /* dim text */
+  --accent: #ffffff;
+  --border-subtle: #262626;
+  font-family: Consolas, "Cascadia Mono", "Lucida Console", monospace;
+  font-size: 14px;
   color-scheme: dark;
 }
 
@@ -24,109 +24,68 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #000;
-  font-family: "VT323", monospace;
+  background: var(--bg-main);
+  font-family: Consolas, "Cascadia Mono", "Lucida Console", monospace;
   color: var(--text-main);
 }
 
-/* ===== CENTERED TERMINAL SCREEN ===== */
+/* ===== CENTERED TERMINAL WINDOW ===== */
 #app {
   height: 100vh;
   width: 100vw;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #000;
+  background: var(--bg-main);
 }
 
 .chat-shell {
   position: relative;
   width: 100%;
-  max-width: 960px;  /* Old-school CRT width */
-  height: 90vh;      /* Terminal screen height */
+  max-width: 1200px;   /* cmd window can be fairly wide */
+  height: 90vh;
   display: flex;
   flex-direction: column;
-  background: #000;
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-main);
+  border: 1px solid #202020;
   overflow: hidden;
 }
 
-/* ===== CRT Effects ===== */
-.chat-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.35) 0px,
-    rgba(0, 0, 0, 0.35) 1px,
-    rgba(0, 0, 0, 0.8) 2px
-  );
-  mix-blend-mode: screen;
-  opacity: 0.28;
-  z-index: 3;
-  animation: scanlines 4s linear infinite;
-}
-
-.chat-shell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at 50% 0%,
-    rgba(0, 255, 65, 0.2) 0%,
-    transparent 60%
-  );
-  mix-blend-mode: screen;
-  opacity: 0.35;
-  z-index: 2;
-  animation: crt-flicker 2s steps(2, end) infinite;
-}
-
-@keyframes scanlines {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(2px); }
-}
-
-@keyframes crt-flicker {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.5; }
-}
-
-/* ===== HEADER INSIDE TERMINAL ===== */
+/* ===== TOP BAR (inside content, not OS titlebar) ===== */
 .terminal-bar {
   width: 100%;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: #000;
-  font-size: 18px;
+  border-bottom: 1px solid #202020;
+  background: #111111;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
-/* ===== BOOT SCREEN ===== */
+/* ===== BOOT SCREEN (same behavior, cmd colors) ===== */
 .boot-screen {
   position: absolute;
   inset: 0;
-  background: #000;
+  background: var(--bg-main);
   color: var(--text-main);
-  padding: 12px 10px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   z-index: 10;
+  font-family: inherit;
 }
 
 .boot-text {
   white-space: pre-wrap;
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 14px;
+  line-height: 1.4;
+  font-family: inherit;
 }
 
 .boot-cursor {
-  margin-top: 6px;
-  font-size: 22px;
+  margin-top: 4px;
+  font-size: 15px;
   animation: blink 0.7s step-end infinite;
+  font-family: inherit;
 }
 
 @keyframes blink {
@@ -135,7 +94,7 @@ body {
 }
 
 .boot-hide {
-  animation: fade-out 0.4s ease-out forwards;
+  animation: fade-out 0.2s ease-out forwards;
 }
 
 @keyframes fade-out {
@@ -145,23 +104,25 @@ body {
 /* ===== TERMINAL AREA: MESSAGES + TYPING + PROMPT ===== */
 .messages {
   flex: 1;
-  padding: 10px;
+  padding: 8px 10px;
   overflow-y: auto;
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 14px;
+  line-height: 1.4;
   white-space: pre-wrap;
   position: relative;
   z-index: 1;
+  background: var(--bg-main);
+  color: var(--text-main);
 }
 
 .messages::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 .messages::-webkit-scrollbar-thumb {
-  background: #003b00;
+  background: #333333;
 }
 
-/* ===== TERMINAL MESSAGE STYLE ===== */
+/* ===== TERMINAL MESSAGE STYLE (line after line) ===== */
 .message-row {
   margin-bottom: 2px;
 }
@@ -172,7 +133,7 @@ body {
 }
 
 .message-prefix {
-  width: 6ch;
+  width: 8ch; /* a bit wider, like C:\Path> */
   display: inline-block;
   color: var(--text-muted);
 }
@@ -181,10 +142,10 @@ body {
   color: var(--text-muted);
 }
 
-/* ===== TYPING INDICATOR (JUST ANOTHER LINE ABOVE PROMPT) ===== */
+/* ===== TYPING INDICATOR (inside messages, above prompt) ===== */
 .typing-indicator {
-  padding: 2px 0;
-  font-size: 16px;
+  padding: 4px 0 2px;
+  font-size: 13px;
   color: var(--text-muted);
   display: flex;
   gap: 0.5ch;
@@ -198,15 +159,15 @@ body {
   display: none !important;
 }
 
-/* ===== INLINE PROMPT (LIKE CMD: NO DIVIDER, JUST NEXT LINE) ===== */
+/* ===== INLINE PROMPT (just next line, like cmd) ===== */
 .prompt-row {
   display: flex;
   align-items: flex-start;
   gap: 0.5ch;
-  /* removed border-top & big margin so it feels like next line */
-  padding-top: 2px;
+  padding-top: 4px;
   margin-top: 0;
-  font-size: 18px;
+  border-top: none;          /* no horizontal divider */
+  font-size: 14px;
 }
 
 .prompt-prefix {
@@ -222,7 +183,7 @@ body {
   color: var(--text-main);
   border: none;
   outline: none;
-  line-height: 1.2;
+  line-height: 1.4;
 }
 
 #input::placeholder {
@@ -242,7 +203,10 @@ input[type="submit"] {
     max-width: 100%;
     height: 92vh;
   }
-  .messages {
-    font-size: 16px;
+
+  .terminal-bar,
+  .messages,
+  .prompt-row {
+    font-size: 13px;
   }
 }
