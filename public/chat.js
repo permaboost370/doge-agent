@@ -1,177 +1,179 @@
+// Simple full-width chat frontend for Agent-067
+// Uses the existing /chat endpoint and ElevenLabs audio you already wired.
+
 const form = document.getElementById("chat-form");
 const input = document.getElementById("input");
-const messages = document.getElementById("messages");
+const messagesEl = document.getElementById("messages");
+const typingIndicator = document.getElementById("typing-indicator");
+const sendBtn = document.getElementById("send-btn");
 
-// 🔹 Conversation history sent to the server
+// Conversation history that we send to the backend
 // Each item: { role: "user" | "assistant", content: "..." }
 const history = [];
 
-// Typewriter function (for bot responses and intro)
-function typeWriter(element, text, speed = 15, onComplete) {
-  let i = 0;
-  element.classList.add("typing"); // blinking cursor via CSS
+// ===== Helpers ===== //
 
-  const interval = setInterval(() => {
-    element.textContent += text[i];
-    i += 1;
-    messages.scrollTop = messages.scrollHeight;
-
-    if (i >= text.length) {
-      clearInterval(interval);
-      element.classList.remove("typing"); // stop blinking cursor
-      if (typeof onComplete === "function") {
-        onComplete();
-      }
-    }
-  }, speed);
+function scrollMessagesToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// ----- TYPEWRITER INTRO -----
-const introText =
-  "C:\\DOGEOS\\AGENTS> AGENT067.EXE \n" +
-  "> HELLO HUMAN NETWORK.\n" +
-  "> I AM AGENT-067.\n" +
-  "> I HAVE BEEN DEPLOYED TO SERVE THE DOGE.\n" +
-  "> SUCH MISSION. MUCH RESPONSIBILITY.";
+function createMessageRow(role, text) {
+  const row = document.createElement("div");
+  row.classList.add("message-row", role);
 
-function playIntro() {
-  const div = document.createElement("div");
-  div.className = "msg system typing";
-  messages.appendChild(div);
-  typeWriter(div, introText, 20);
+  // system messages are just centered text with no avatar
+  if (role === "system") {
+    const bubble = document.createElement("div");
+    bubble.classList.add("message-bubble", "system");
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    return row;
+  }
+
+  const avatar = document.createElement("div");
+  avatar.classList.add("message-avatar");
+  if (role === "user") avatar.classList.add("user");
+  avatar.textContent = role === "user" ? "You" : "D";
+
+  const bubble = document.createElement("div");
+  bubble.classList.add("message-bubble", role === "user" ? "user" : "bot");
+  bubble.textContent = text;
+
+  if (role === "bot") {
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+  } else {
+    row.appendChild(bubble);
+  }
+
+  return row;
 }
 
-// Run intro once at load
-playIntro();
+function addMessage(text, role = "bot") {
+  const row = createMessageRow(role, text);
+  messagesEl.appendChild(row);
+  scrollMessagesToBottom();
+}
 
-// ----- AUDIO HELPERS -----
+function setLoading(isLoading) {
+  if (!typingIndicator) return;
+  typingIndicator.classList.toggle("hidden", !isLoading);
+  input.disabled = isLoading;
+  sendBtn.disabled = isLoading;
+}
+
+// Auto-grow textarea vertically
+function autoResizeTextarea(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 140) + "px";
+}
+
+// Base64 -> Blob for audio playback
 function base64ToBlob(base64, mimeType) {
-  if (!base64) return null;
   const byteCharacters = atob(base64);
   const byteNumbers = new Array(byteCharacters.length);
-
   for (let i = 0; i < byteCharacters.length; i++) {
     byteNumbers[i] = byteCharacters.charCodeAt(i);
   }
-
   const byteArray = new Uint8Array(byteNumbers);
   return new Blob([byteArray], { type: mimeType });
 }
 
 function playReplyAudio(base64, format = "mp3") {
   if (!base64) return;
-
-  const mime = format === "mp3" ? "audio/mpeg" : `audio/${format}`;
-  const blob = base64ToBlob(base64, mime);
-  if (!blob) return;
-
-  const url = URL.createObjectURL(blob);
-  const audio = new Audio(url);
-
-  // User just interacted (submitted form), so autoplay is usually allowed
-  audio.play().catch((err) => {
-    console.warn("Autoplay blocked or failed:", err);
-  });
-}
-
-// ----- ADD MESSAGE -----
-function addMessage(text, who, typeEffect = false, onDone) {
-  const div = document.createElement("div");
-  div.className = "msg " + who;
-  messages.appendChild(div);
-
-  if (who === "bot") {
-    // Build ASCII box
-
-    // 1) Split, trim, and REMOVE empty lines to avoid blank rows
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-
-    // 2) Prefix with DOGE>
-    const dogeLines = lines.map((l) => "DOGE> " + l);
-
-    // 3) Compute box width
-    const maxLen = dogeLines.reduce(
-      (max, line) => Math.max(max, line.length),
-      0
-    );
-    const border = "+" + "-".repeat(maxLen + 2) + "+";
-
-    // 4) Build boxed text
-    const boxedText =
-      border +
-      "\n" +
-      dogeLines
-        .map((line) => {
-          const padding = " ".repeat(maxLen - line.length);
-          return "| " + line + padding + " |";
-        })
-        .join("\n") +
-      "\n" +
-      border;
-
-    // 5) Typewriter or instant
-    if (typeEffect) {
-      typeWriter(div, boxedText, 10, onDone); // SPEED here
-    } else {
-      div.textContent = boxedText;
-      if (typeof onDone === "function") onDone();
-    }
-  } else {
-    // User or system message
-    if (typeEffect) {
-      typeWriter(div, text, 10, onDone);
-    } else {
-      div.textContent = text;
-      if (typeof onDone === "function") onDone();
-    }
+  try {
+    const mime = format === "mp3" ? "audio/mpeg" : `audio/${format}`;
+    const blob = base64ToBlob(base64, mime);
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play().catch((err) => {
+      console.warn("Audio playback failed:", err);
+    });
+  } catch (e) {
+    console.warn("Failed to play audio:", e);
   }
-
-  messages.scrollTop = messages.scrollHeight;
 }
 
-// ----- CHAT LOGIC -----
+// ===== Initial welcome message ===== //
+
+function showWelcomeMessage() {
+  const welcome =
+    "Welcome to DogeOS Agent-067.\n" +
+    "I am deployed to serve the Doge and assist your operations.\n" +
+    "Ask concise questions for fast replies, or say 'explain in depth' when you want full lore.";
+  addMessage(welcome, "bot");
+}
+
+showWelcomeMessage();
+
+// ===== Event handlers ===== //
+
+// Auto-resize on input
+input.addEventListener("input", () => {
+  autoResizeTextarea(input);
+});
+
+// Send on Enter (but allow Shift+Enter for newline)
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text) return;
 
-  // user message (white, with YOU> from CSS)
+  // Show user message in UI
   addMessage(text, "user");
-  input.value = "";
-
-  // add user message to conversation history
   history.push({ role: "user", content: text });
+
+  // Reset input
+  input.value = "";
+  autoResizeTextarea(input);
+
+  // Call backend
+  setLoading(true);
 
   try {
     const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // send both current message and full history
-      body: JSON.stringify({ message: text, history }),
+      body: JSON.stringify({
+        message: text,
+        history,
+      }),
     });
 
+    if (!res.ok) {
+      throw new Error(`HTTP error ${res.status}`);
+    }
+
     const data = await res.json();
+    const replyText = (data.reply || "").trim() || "Such silence. Much empty.";
+    const audioBase64 = data.audioBase64 || null;
+    const audioFormat = data.audioFormat || "mp3";
 
-    if (data.error) {
-      addMessage("Doge Agent error: " + data.error, "bot", true);
-    } else {
-      const replyText = data.reply || "such silence, much empty";
-      const audioBase64 = data.audioBase64 || null;
-      const audioFormat = data.audioFormat || "mp3";
+    // Show bot reply in UI
+    addMessage(replyText, "bot");
 
-      // bot message (green, boxed, DOGE> prefix) + voice
-      addMessage(replyText, "bot", true, () => {
-        playReplyAudio(audioBase64, audioFormat);
-      });
+    // Update local history
+    history.push({ role: "assistant", content: replyText });
 
-      // add bot reply (clean text) to history for context
-      history.push({ role: "assistant", content: replyText });
+    // Play voice if available
+    if (audioBase64) {
+      playReplyAudio(audioBase64, audioFormat);
     }
   } catch (err) {
     console.error(err);
-    addMessage("Doge Agent confused. Network broke.", "bot", true);
+    addMessage(
+      "Doge Agent confused. Network broke or backend failed. Try again in a moment.",
+      "system"
+    );
+  } finally {
+    setLoading(false);
   }
 });
