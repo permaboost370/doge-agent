@@ -2,28 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Agent-067 • DogeOS Chat</title>
+  <title>Agent-067 • DogeOS Terminal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- VT323 terminal font -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+  />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app">
-    <!-- Top bar -->
+    <!-- Top terminal bar -->
     <header class="app-header">
       <div class="app-header-left">
-        <div class="logo-circle">D</div>
+        <span class="logo-circle">DOGEOS-067</span>
         <div class="app-title">
-          <div class="app-name">Agent-067</div>
-          <div class="app-subtitle">DogeOS Intelligence Console</div>
+          <span class="app-name">TERMINAL</span>
+          <span class="app-subtitle">/DOGE/OPS/INTEL/067</span>
         </div>
       </div>
       <div class="app-header-right">
-        <span class="status-dot status-online"></span>
-        <span class="status-text">Online</span>
+        <span class="status-dot"></span>
+        <span class="status-text">LINK: ONLINE</span>
       </div>
     </header>
 
-    <!-- Main chat area -->
+    <!-- Main terminal area -->
     <main class="app-main">
       <div class="chat-shell">
         <!-- CRT boot screen overlay -->
@@ -32,29 +39,30 @@
           <div class="boot-cursor">▉</div>
         </div>
 
+        <!-- Scrollable terminal output -->
         <div id="messages" class="messages"></div>
+
+        <!-- Typing indicator as a terminal line -->
         <div id="typing-indicator" class="typing-indicator hidden">
-          Agent-067 is thinking <span class="typing-cursor">▉</span>
+          067> processing <span class="typing-cursor">▉</span>
         </div>
+
+        <!-- Terminal prompt (command line) -->
+        <form id="chat-form" class="prompt-row">
+          <span class="message-prefix prompt-prefix">YOU&gt; </span>
+          <textarea
+            id="input"
+            rows="1"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="enter command..."
+          ></textarea>
+          <button type="submit" id="send-btn" aria-label="Execute command">
+            ENTER
+          </button>
+        </form>
       </div>
     </main>
-
-    <!-- Input area -->
-    <footer class="app-footer">
-      <form id="chat-form" class="chat-input-row">
-        <textarea
-          id="input"
-          rows="1"
-          placeholder="Awaiting command..."
-          autocomplete="off"
-        ></textarea>
-        <button type="submit" id="send-btn" aria-label="Send message">
-          <span class="send-label">SEND</span>
-          <span class="send-icon">↗</span>
-        </button>
-      </form>
-      <!-- footer-meta intentionally removed -->
-    </footer>
   </div>
 
   <script src="chat.js"></script>
