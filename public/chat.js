@@ -1,4 +1,4 @@
-// Full-screen DOS / CRT DogeOS Agent-067 frontend
+// DOGEOS-067 terminal frontend
 // Uses /chat backend (OpenAI + ElevenLabs) exactly as before.
 
 const form = document.getElementById("chat-form");
@@ -10,7 +10,7 @@ const bootScreen = document.getElementById("boot-screen");
 const bootTextEl = document.getElementById("boot-text");
 const bootCursorEl = document.querySelector(".boot-cursor");
 
-// Conversation history that we send to the backend
+// Conversation history for backend
 const history = [];
 
 // Boot state
@@ -27,14 +27,14 @@ function getAudioContext() {
   return audioContext;
 }
 
-// Play a short "keyboard click" sound (low-volume blip)
+// Play a short "keyboard click" sound
 function playTypingClick() {
   const ctx = getAudioContext();
   if (!ctx) return;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "square";
-  osc.frequency.value = 300 + Math.random() * 100; // slight variation
+  osc.frequency.value = 280 + Math.random() * 60;
   gain.gain.value = 0.03;
 
   osc.connect(gain);
@@ -73,40 +73,37 @@ function createMessageRow(role, text) {
   const row = document.createElement("div");
   row.classList.add("message-row", role);
 
-  // System messages: centered text, no avatar
+  const line = document.createElement("div");
+  line.classList.add("message-line");
+
   if (role === "system") {
-    const bubble = document.createElement("div");
-    bubble.classList.add("message-bubble", "system");
-    bubble.textContent = text;
-    row.appendChild(bubble);
+    const content = document.createElement("span");
+    content.classList.add("message-content", "system");
+    content.textContent = text;
+    line.appendChild(content);
+    row.appendChild(line);
     return row;
   }
 
-  const avatar = document.createElement("div");
-  avatar.classList.add("message-avatar");
-  if (role === "user") avatar.classList.add("user");
-  avatar.textContent = role === "user" ? "YOU" : "D";
+  const prefix = document.createElement("span");
+  prefix.classList.add("message-prefix");
+  prefix.textContent = role === "user" ? "YOU> " : "067> ";
 
-  const bubble = document.createElement("div");
-  bubble.classList.add("message-bubble", role === "user" ? "user" : "bot");
-
-  // For user messages we set the text immediately
+  const content = document.createElement("span");
+  content.classList.add("message-content", role);
   if (role === "user") {
-    bubble.textContent = text;
+    content.textContent = text;
   }
 
-  if (role === "bot") {
-    row.appendChild(avatar);
-    row.appendChild(bubble);
-  } else {
-    row.appendChild(bubble);
-  }
+  line.appendChild(prefix);
+  line.appendChild(content);
+  row.appendChild(line);
 
   return row;
 }
 
-// Typewriter effect for bot messages (with typing sound)
-function typeBotText(bubbleEl, fullText, onDone) {
+// Typewriter effect for bot text with clicks
+function typeBotText(element, fullText, onDone) {
   let i = 0;
 
   function step() {
@@ -114,17 +111,15 @@ function typeBotText(bubbleEl, fullText, onDone) {
       if (onDone) onDone();
       return;
     }
-    // Append next char
-    bubbleEl.textContent += fullText.charAt(i);
+    element.textContent += fullText.charAt(i);
     i++;
 
-    // Play click every few characters
     if (i % 3 === 0) {
       playTypingClick();
     }
 
     scrollMessagesToBottom();
-    setTimeout(step, 18); // fast-ish typewriter
+    setTimeout(step, 18);
   }
 
   step();
@@ -132,16 +127,14 @@ function typeBotText(bubbleEl, fullText, onDone) {
 
 function addMessage(text, role = "bot") {
   const row = createMessageRow(role, text);
-  const isBot = role === "bot";
-
   messagesEl.appendChild(row);
   scrollMessagesToBottom();
 
-  if (isBot) {
-    const bubble = row.querySelector(".message-bubble.bot");
-    if (!bubble) return row;
-    bubble.textContent = ""; // we will type it in
-    typeBotText(bubble, text, () => {
+  if (role === "bot") {
+    const contentEl = row.querySelector(".message-content.bot");
+    if (!contentEl) return row;
+    contentEl.textContent = ""; // we'll type it
+    typeBotText(contentEl, text, () => {
       playResponseBeep();
     });
   }
@@ -156,11 +149,11 @@ function setLoading(isLoading) {
   sendBtn.disabled = isLoading || !DOGEOS_BOOTED;
 }
 
-// Auto-grow textarea vertically
+// Auto-grow textarea
 function autoResizeTextarea(el) {
   if (!el) return;
   el.style.height = "auto";
-  el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  el.style.height = Math.min(el.scrollHeight, 90) + "px";
 }
 
 // Base64 -> Blob for audio playback
@@ -220,8 +213,7 @@ function runBootSequence() {
 
   function nextChar() {
     if (lineIndex >= bootLines.length) {
-      // Done
-      bootCursorEl && bootCursorEl.classList.remove("hidden");
+      if (bootCursorEl) bootCursorEl.classList.remove("hidden");
       setTimeout(() => {
         if (bootScreen) {
           bootScreen.classList.add("boot-hide");
@@ -229,7 +221,7 @@ function runBootSequence() {
         DOGEOS_BOOTED = true;
         input.disabled = false;
         sendBtn.disabled = false;
-        input.placeholder = "Ask Agent-067 anything...";
+        input.placeholder = "YOU> enter command...";
         showWelcomeMessage();
       }, 450);
       return;
@@ -252,7 +244,6 @@ function runBootSequence() {
     }
   }
 
-  // Ensure cursor visible during boot
   if (bootCursorEl) {
     bootCursorEl.classList.remove("hidden");
   }
@@ -260,26 +251,26 @@ function runBootSequence() {
   nextChar();
 }
 
-// ===== Initial welcome message (after boot) ===== //
-
+// Welcome line after boot
 function showWelcomeMessage() {
   const welcome =
-    "Agent-067 online.\n" +
-    "Short queries yield fast intel. Request 'explain in depth' when you want full mission lore.";
-  addMessage(welcome, "bot");
+    "067> Agent-067 online. Short queries yield fast intel. Request 'explain in depth' for full mission lore.";
+  // We want this to look like a bot line, but we already prefix in layout,
+  // so strip the leading "067> " from the content we send to addMessage.
+  const stripped = welcome.replace(/^067>\s*/, "");
+  addMessage(stripped, "bot");
 }
 
-// Run boot sequence on load
+// Start boot sequence
 runBootSequence();
 
 // ===== Event handlers ===== //
 
-// Auto-resize on input
 input.addEventListener("input", () => {
   autoResizeTextarea(input);
 });
 
-// Send on Enter (but allow Shift+Enter for newline)
+// Send on Enter (Shift+Enter = newline)
 input.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -292,17 +283,16 @@ form.addEventListener("submit", async (e) => {
   const text = input.value.trim();
 
   if (!DOGEOS_BOOTED) {
-    // Ignore input until boot done
     return;
   }
 
   if (!text) return;
 
-  // Show user message in UI
+  // Show user message
   addMessage(text, "user");
   history.push({ role: "user", content: text });
 
-  // Reset input
+  // Clear input
   input.value = "";
   autoResizeTextarea(input);
 
@@ -325,24 +315,24 @@ form.addEventListener("submit", async (e) => {
 
     const data = await res.json();
     const replyText =
-      (data.reply || "").trim() || "Such silence. Much empty.";
+      (data.reply || "").trim() || "such silence, much empty.";
     const audioBase64 = data.audioBase64 || null;
     const audioFormat = data.audioFormat || "mp3";
 
-    // Show bot reply in UI (with typewriter + sounds)
+    // Show bot reply as terminal line with typewriter
     addMessage(replyText, "bot");
 
-    // Update local history
+    // Update history
     history.push({ role: "assistant", content: replyText });
 
-    // Play voice if available
+    // Play TTS if available
     if (audioBase64) {
       playReplyAudio(audioBase64, audioFormat);
     }
   } catch (err) {
     console.error(err);
     addMessage(
-      "Doge Agent confused. Network broke or backend failed. Try again in a moment.",
+      "SYSTEM> Doge Agent confused. Network broke or backend failed. Try again.",
       "system"
     );
   } finally {
