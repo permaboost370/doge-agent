@@ -109,6 +109,98 @@ ADDITIONAL RESTRICTIONS:
 - Do NOT use emoji characters like 😀😂🔥❤️ or kaomoji like :) or ^_^.
 - Only use plain text, no emoji-like symbols.`;
 
+// ---------- Simple contract-address / token analysis helpers ----------
+
+// Detect an EVM-style contract address in a message
+function extractContractAddress(message) {
+  if (!message) return null;
+  const match = message.match(/0x[a-fA-F0-9]{40}/);
+  return match ? match[0] : null;
+}
+
+// Fetch token / pair data from DexScreener for a given CA
+async function fetchTokenDataFromDexScreener(ca) {
+  try {
+    const url = `https://api.dexscreener.com/latest/dex/tokens/${ca}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("DexScreener HTTP error:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    if (!data.pairs || !data.pairs.length) return null;
+
+    const pair = data.pairs[0];
+
+    return {
+      chainId: pair.chainId,
+      dexId: pair.dexId,
+      pairAddress: pair.pairAddress,
+      baseToken: pair.baseToken, // { address, name, symbol }
+      quoteToken: pair.quoteToken,
+      priceUsd: pair.priceUsd,
+      fdv: pair.fdv,
+      liquidity: pair.liquidityUsd,
+      volume24h: pair.volume?.h24,
+      txns24h: pair.txns?.h24,
+      url: pair.url,
+    };
+  } catch (err) {
+    console.error("DexScreener error:", err);
+    return null;
+  }
+}
+
+// Turn token data into a system message the model can use
+function formatTokenSummary(tokenData, ca) {
+  if (!tokenData) {
+    return [
+      `On-chain / DEX scan for contract address: ${ca}`,
+      "No active pairs or market data were found. The token might be extremely new, illiquid, or on an unsupported chain.",
+      "You must NOT give any financial advice. You may only explain that data is missing and warn the user to be cautious."
+    ].join("\n");
+  }
+
+  const {
+    chainId,
+    dexId,
+    baseToken,
+    quoteToken,
+    priceUsd,
+    fdv,
+    liquidity,
+    volume24h,
+    txns24h,
+    url,
+  } = tokenData;
+
+  return [
+    `On-chain / DEX scan for contract address: ${ca}`,
+    `Network: ${chainId || "unknown"} | DEX: ${dexId || "unknown"}`,
+    `Token: ${baseToken?.name || "Unknown"} (${baseToken?.symbol || "?"})`,
+    `Quote: ${quoteToken?.symbol || "?"}`,
+    `Approx price (USD): ${priceUsd ? "$" + Number(priceUsd).toFixed(8) : "unknown"}`,
+    `FDV (fully diluted valuation, USD): ${
+      fdv ? "$" + fdv.toLocaleString() : "unknown"
+    }`,
+    `Liquidity (USD): ${
+      liquidity ? "$" + liquidity.toLocaleString() : "unknown"
+    }`,
+    `Volume (24h, USD): ${
+      volume24h ? "$" + volume24h.toLocaleString() : "unknown"
+    }`,
+    `Transactions (24h): ${txns24h ?? "unknown"}`,
+    url ? `DexScreener pair URL: ${url}` : "",
+    "",
+    "You are an AI agent in a meme terminal. Use this data to explain what you see in plain language.",
+    "Highlight risks such as very low liquidity, tiny volume, or weird FDV.",
+    "You must NEVER give financial advice, price predictions, or tell the user to buy/sell. Always tell them to do their own research."
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // ---------- ElevenLabs TTS config ----------
 
 // Required: ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID (set these in Railway)
@@ -190,7 +282,7 @@ async function synthesizeWithElevenLabs(text) {
   return buffer.toString("base64"); // MP3 in base64
 }
 
-// ---------- Chat endpoint: text + ElevenLabs audio + MEMORY ----------
+// ---------- Chat endpoint: text + ElevenLabs audio + MEMORY + CONTRACT ANALYZER ----------
 
 app.post("/chat", async (req, res) => {
   try {
@@ -203,29 +295,39 @@ app.post("/chat", async (req, res) => {
       ? req.body.history
       : [];
 
-    // Build messages for OpenAI using client-side history if present
-    let messages;
-
-    if (clientHistory.length > 0) {
-      // Optionally limit history size to last N turns to save tokens
-      const trimmedHistory = clientHistory.slice(-20); // last 20 messages (user+assistant)
-
-      messages = [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...trimmedHistory,
-      ];
-    } else {
-      // Fallback: behave like old version (no memory)
-      messages = [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ];
-    }
-
     if (!userMessage && clientHistory.length === 0) {
       return res
         .status(400)
         .json({ error: "such empty, much nothing to reply" });
+    }
+
+    // If the user message contains a contract address, fetch token data
+    let contractAnalysisSystemMessage = null;
+    const ca = extractContractAddress(userMessage);
+    if (ca) {
+      console.log("[CA] Detected contract address:", ca);
+      const tokenData = await fetchTokenDataFromDexScreener(ca);
+      contractAnalysisSystemMessage = formatTokenSummary(tokenData, ca);
+    }
+
+    // Build messages for OpenAI using client-side history if present
+    const messages = [{ role: "system", content: SYSTEM_PROMPT }];
+
+    if (clientHistory.length > 0) {
+      // limit history size to last N turns to save tokens
+      const trimmedHistory = clientHistory.slice(-20); // last 20 messages (user+assistant)
+      messages.push(...trimmedHistory);
+    } else {
+      // no history sent by client: add the current user message explicitly
+      messages.push({ role: "user", content: userMessage });
+    }
+
+    // Inject contract analysis context (if any) as an extra system message
+    if (contractAnalysisSystemMessage) {
+      messages.push({
+        role: "system",
+        content: contractAnalysisSystemMessage,
+      });
     }
 
     // 1) Generate text reply with OpenAI
