@@ -1,56 +1,81 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Agent-067 • DogeOS Terminal</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <head>
+    <meta charset="UTF-8" />
+    <title>DogeOS Agent 067 Terminal</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="layout">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+          <!-- Main site icon -->
+          <a
+            href="https://dogeaent.org"
+            class="sidebar-icon"
+            title="Main Site"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img src="icons/main.png" alt="Main" />
+          </a>
 
-  <!-- VT323 terminal font -->
-  <link
-    rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
-  />
+          <!-- Chat page icon -->
+          <a
+            href="https://chat.dogeagent.org"
+            class="sidebar-icon"
+            title="Chat"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img src="icons/chat.png" alt="Chat" />
+          </a>
+        </aside>
 
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div id="app">
-    <div class="chat-shell">
-      <!-- Top terminal status line -->
-      <div class="terminal-bar">
-        DOGEOS-067 TERMINAL | ROUTE: /DOGE/OPS/INTEL/067 | LINK: ONLINE
-      </div>
+        <!-- TERMINAL AREA -->
+        <div class="terminal-wrapper">
+          <div class="chat-shell">
+            <!-- BOOT SCREEN -->
+            <div id="boot-screen" class="boot-screen">
+              <pre id="boot-text" class="boot-text"></pre>
+              <div class="boot-cursor">▉</div>
+            </div>
 
-      <!-- CRT boot screen overlay -->
-      <div id="boot-screen" class="boot-screen">
-        <pre id="boot-text" class="boot-text"></pre>
-        <div class="boot-cursor">▉</div>
-      </div>
+            <!-- TOP BAR -->
+            <div class="terminal-bar">
+              DOGEOS-067 TERMINAL
+            </div>
 
-      <!-- Scrollable terminal area: messages + typing + prompt all inside -->
-      <div id="messages" class="messages">
+            <!-- TERMINAL CONTENT -->
+            <div id="messages" class="messages">
+              <!-- typing indicator sits above the prompt -->
+              <div id="typing-indicator" class="typing-indicator hidden">
+                <span>067 is thinking</span>
+                <span class="typing-cursor">▉</span>
+              </div>
 
-        <!-- Typing indicator (stays just above the prompt) -->
-        <div id="typing-indicator" class="typing-indicator hidden">
-          067&gt; processing <span class="typing-cursor">▉</span>
+              <!-- PROMPT (form) -->
+              <form id="chat-form" class="prompt-row">
+                <span class="prompt-prefix">YOU&gt;</span>
+                <textarea
+                  id="input"
+                  autocomplete="off"
+                  rows="1"
+                  spellcheck="false"
+                  placeholder="enter command..."
+                ></textarea>
+              </form>
+            </div>
+          </div>
         </div>
-
-        <!-- Terminal prompt (command line INSIDE screen) -->
-        <form id="chat-form" class="prompt-row">
-          <span class="message-prefix prompt-prefix">YOU&gt; </span>
-          <textarea
-            id="input"
-            rows="1"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="enter command..."
-          ></textarea>
-        </form>
-
       </div>
     </div>
-  </div>
 
-  <script src="chat.js"></script>
-</body>
+    <script src="chat.js"></script>
+  </body>
 </html>
