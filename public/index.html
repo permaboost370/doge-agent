@@ -16,9 +16,9 @@
 <body>
   <div id="app">
     <div class="chat-shell">
-      <!-- Top terminal status line (inside screen) -->
+      <!-- Top terminal status line -->
       <div class="terminal-bar">
-        DOGEOS-067 TERMINAL  |  ROUTE: /DOGE/OPS/INTEL/067  |  LINK: ONLINE
+        DOGEOS-067 TERMINAL | ROUTE: /DOGE/OPS/INTEL/067 | LINK: ONLINE
       </div>
 
       <!-- CRT boot screen overlay -->
@@ -27,28 +27,29 @@
         <div class="boot-cursor">▉</div>
       </div>
 
-      <!-- Scrollable terminal output -->
-      <div id="messages" class="messages"></div>
+      <!-- Scrollable terminal area: messages + typing + prompt all inside -->
+      <div id="messages" class="messages">
+        <!-- message rows will be injected above this -->
 
-      <!-- Typing indicator as a terminal line -->
-      <div id="typing-indicator" class="typing-indicator hidden">
-        067> processing <span class="typing-cursor">▉</span>
+        <div id="typing-indicator" class="typing-indicator hidden">
+          067&gt; processing <span class="typing-cursor">▉</span>
+        </div>
+
+        <!-- Terminal prompt (command line) -->
+        <form id="chat-form" class="prompt-row">
+          <span class="message-prefix prompt-prefix">YOU&gt; </span>
+          <textarea
+            id="input"
+            rows="1"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="enter command..."
+          ></textarea>
+          <button type="submit" id="send-btn" aria-label="Execute command">
+            ENTER
+          </button>
+        </form>
       </div>
-
-      <!-- Terminal prompt (command line INSIDE the screen) -->
-      <form id="chat-form" class="prompt-row">
-        <span class="message-prefix prompt-prefix">YOU&gt; </span>
-        <textarea
-          id="input"
-          rows="1"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="enter command..."
-        ></textarea>
-        <button type="submit" id="send-btn" aria-label="Execute command">
-          ENTER
-        </button>
-      </form>
     </div>
   </div>
 
