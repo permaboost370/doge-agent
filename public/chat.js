@@ -127,7 +127,11 @@ function typeBotText(element, fullText, onDone) {
 
 function addMessage(text, role = "bot") {
   const row = createMessageRow(role, text);
-  messagesEl.appendChild(row);
+
+  // Insert BEFORE the typing indicator (which sits above the prompt)
+  const typingNode = typingIndicator;
+  messagesEl.insertBefore(row, typingNode);
+
   scrollMessagesToBottom();
 
   if (role === "bot") {
@@ -279,10 +283,7 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
 
-  if (!DOGEOS_BOOTED) {
-    return;
-  }
-
+  if (!DOGEOS_BOOTED) return;
   if (!text) return;
 
   // Show user message
