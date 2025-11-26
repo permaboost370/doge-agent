@@ -42,8 +42,8 @@ body {
 .chat-shell {
   position: relative;
   width: 100%;
-  max-width: 960px; /* Old-school CRT width */
-  height: 90vh;     /* Terminal screen height */
+  max-width: 960px;  /* Old-school CRT width */
+  height: 90vh;      /* Terminal screen height */
   display: flex;
   flex-direction: column;
   background: #000;
@@ -86,22 +86,13 @@ body {
 }
 
 @keyframes scanlines {
-  0% {
-    transform: translateY(0);
-  }
-  100% {
-    transform: translateY(2px);
-  }
+  0% { transform: translateY(0); }
+  100% { transform: translateY(2px); }
 }
 
 @keyframes crt-flicker {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.5; }
 }
 
 /* ===== HEADER INSIDE TERMINAL ===== */
@@ -139,14 +130,8 @@ body {
 }
 
 @keyframes blink {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
+  0%, 49% { opacity: 1; }
+  50%,100% { opacity: 0; }
 }
 
 .boot-hide {
@@ -154,13 +139,10 @@ body {
 }
 
 @keyframes fade-out {
-  to {
-    opacity: 0;
-    visibility: hidden;
-  }
+  to { opacity: 0; visibility: hidden; }
 }
 
-/* ===== TERMINAL AREA: MESSAGES + PROMPT ===== */
+/* ===== TERMINAL AREA: MESSAGES + TYPING + PROMPT ===== */
 .messages {
   flex: 1;
   padding: 10px;
@@ -246,23 +228,11 @@ body {
   color: var(--text-muted);
 }
 
-#send-btn {
-  border: 1px solid var(--border-subtle);
-  background: #001100;
-  color: var(--accent);
-  font: inherit;
-  padding: 2px 8px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-#send-btn:hover {
-  background: #002200;
-}
-
-#send-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+/* Kill any stray buttons (no visible ENTER button) */
+button,
+#send-btn,
+input[type="submit"] {
+  display: none !important;
 }
 
 /* ===== RESPONSIVE ===== */
