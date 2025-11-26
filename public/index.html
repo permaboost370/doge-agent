@@ -26,9 +26,15 @@
     <!-- Main chat area -->
     <main class="app-main">
       <div class="chat-shell">
+        <!-- CRT boot screen overlay -->
+        <div id="boot-screen" class="boot-screen">
+          <pre id="boot-text" class="boot-text"></pre>
+          <div class="boot-cursor">▉</div>
+        </div>
+
         <div id="messages" class="messages"></div>
         <div id="typing-indicator" class="typing-indicator hidden">
-          Agent-067 is thinking…
+          Agent-067 is thinking <span class="typing-cursor">▉</span>
         </div>
       </div>
     </main>
@@ -39,16 +45,15 @@
         <textarea
           id="input"
           rows="1"
-          placeholder="Ask Agent-067 anything about DogeOS, crypto, or the mission…"
+          placeholder="Awaiting command..."
           autocomplete="off"
         ></textarea>
         <button type="submit" id="send-btn" aria-label="Send message">
-          <span class="send-label">Send</span>
+          <span class="send-label">SEND</span>
           <span class="send-icon">↗</span>
         </button>
       </form>
-      <div class="footer-meta">
-      </div>
+      <!-- footer-meta intentionally removed -->
     </footer>
   </div>
 
