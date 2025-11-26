@@ -208,11 +208,9 @@ async function fetchTokenDataFromDexScreener(address, chainHint) {
       pairAddress: pair.pairAddress,
       baseToken: pair.baseToken,
       quoteToken: pair.quoteToken,
-      priceUsd: pair.priceUsd,
       fdv: pair.fdv,
       liquidity: pair.liquidityUsd ?? pair.liquidity?.usd,
       volume24h: pair.volume?.h24,
-      txns24h: pair.txns?.h24,
       url: pair.url,
     };
   } catch (err) {
