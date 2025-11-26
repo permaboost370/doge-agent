@@ -109,19 +109,44 @@ ADDITIONAL RESTRICTIONS:
 - Do NOT use emoji characters like 😀😂🔥❤️ or kaomoji like :) or ^_^.
 - Only use plain text, no emoji-like symbols.`;
 
-// ---------- Simple contract-address / token analysis helpers ----------
+// ---------- Contract-address / token analysis helpers ----------
 
-// Detect an EVM-style contract address in a message
-function extractContractAddress(message) {
+// Detect both EVM 0x… and Solana-style base58 addresses
+function extractContractInfo(message) {
   if (!message) return null;
-  const match = message.match(/0x[a-fA-F0-9]{40}/);
-  return match ? match[0] : null;
+
+  // EVM-style: 0x + 40 hex chars
+  const evmMatch = message.match(/0x[a-fA-F0-9]{40}/);
+  if (evmMatch) {
+    return { address: evmMatch[0], chainHint: "evm" };
+  }
+
+  // Solana-style: base58, 32–44 chars, no 0/O/I/l
+  const solMatch = message.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/);
+  if (solMatch) {
+    return { address: solMatch[0], chainHint: "solana" };
+  }
+
+  return null;
 }
 
-// Fetch token / pair data from DexScreener for a given CA
-async function fetchTokenDataFromDexScreener(ca) {
+// Fetch token / pair data from DexScreener for a given CA & chain hint
+async function fetchTokenDataFromDexScreener(address, chainHint) {
   try {
-    const url = `https://api.dexscreener.com/latest/dex/tokens/${ca}`;
+    let url;
+    let isNewTokensEndpoint = false;
+
+    if (chainHint === "solana") {
+      // New docs endpoint for one or multiple tokens by chain and tokenAddress
+      // https://api.dexscreener.com/tokens/v1/{chainId}/{tokenAddresses}
+      url = `https://api.dexscreener.com/tokens/v1/solana/${address}`;
+      isNewTokensEndpoint = true;
+    } else {
+      // Fallback for EVM chains – DexScreener auto-detects on this legacy endpoint
+      // Still widely used in the wild and simpler than guessing chainId.
+      url = `https://api.dexscreener.com/latest/dex/tokens/${address}`;
+    }
+
     const res = await fetch(url);
     if (!res.ok) {
       console.error("DexScreener HTTP error:", res.status);
@@ -129,19 +154,40 @@ async function fetchTokenDataFromDexScreener(ca) {
     }
 
     const data = await res.json();
-    if (!data.pairs || !data.pairs.length) return null;
 
+    // Handle new tokens/v1 endpoint (Solana path)
+    if (isNewTokensEndpoint) {
+      if (!Array.isArray(data) || data.length === 0) return null;
+      const entry = data[0];
+
+      return {
+        chainId: entry.chainId,
+        dexId: entry.dexId,
+        pairAddress: entry.pairAddress,
+        baseToken: entry.baseToken,   // { address, name, symbol }
+        quoteToken: entry.quoteToken, // usually SOL/USDC etc
+        priceUsd: entry.priceUsd,
+        fdv: entry.fdv,
+        liquidity: entry.liquidity?.usd,
+        volume24h: entry.volume?.h24,
+        txns24h: entry.txns?.h24,
+        url: entry.url,
+      };
+    }
+
+    // Handle older latest/dex/tokens endpoint (EVM-style)
+    if (!data.pairs || !data.pairs.length) return null;
     const pair = data.pairs[0];
 
     return {
       chainId: pair.chainId,
       dexId: pair.dexId,
       pairAddress: pair.pairAddress,
-      baseToken: pair.baseToken, // { address, name, symbol }
+      baseToken: pair.baseToken,
       quoteToken: pair.quoteToken,
       priceUsd: pair.priceUsd,
       fdv: pair.fdv,
-      liquidity: pair.liquidityUsd,
+      liquidity: pair.liquidityUsd ?? pair.liquidity?.usd,
       volume24h: pair.volume?.h24,
       txns24h: pair.txns?.h24,
       url: pair.url,
@@ -303,18 +349,26 @@ app.post("/chat", async (req, res) => {
 
     // If the user message contains a contract address, fetch token data
     let contractAnalysisSystemMessage = null;
-    const ca = extractContractAddress(userMessage);
-    if (ca) {
-      console.log("[CA] Detected contract address:", ca);
-      const tokenData = await fetchTokenDataFromDexScreener(ca);
-      contractAnalysisSystemMessage = formatTokenSummary(tokenData, ca);
+    const contractInfo = extractContractInfo(userMessage);
+    if (contractInfo) {
+      console.log(
+        `[CA] Detected ${contractInfo.chainHint} address:`,
+        contractInfo.address
+      );
+      const tokenData = await fetchTokenDataFromDexScreener(
+        contractInfo.address,
+        contractInfo.chainHint
+      );
+      contractAnalysisSystemMessage = formatTokenSummary(
+        tokenData,
+        contractInfo.address
+      );
     }
 
     // Build messages for OpenAI using client-side history if present
     const messages = [{ role: "system", content: SYSTEM_PROMPT }];
 
     if (clientHistory.length > 0) {
-      // limit history size to last N turns to save tokens
       const trimmedHistory = clientHistory.slice(-20); // last 20 messages (user+assistant)
       messages.push(...trimmedHistory);
     } else {
@@ -350,7 +404,7 @@ app.post("/chat", async (req, res) => {
       audioBase64 = await synthesizeWithElevenLabs(reply);
     } catch (ttsError) {
       console.error("ElevenLabs TTS error:", ttsError);
-      // We still return the text even if audio fails
+      // Still return the text even if audio fails
     }
 
     // 3) Send both text + base64 audio to frontend
