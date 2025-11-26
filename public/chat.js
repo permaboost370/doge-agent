@@ -221,7 +221,7 @@ function runBootSequence() {
         DOGEOS_BOOTED = true;
         input.disabled = false;
         sendBtn.disabled = false;
-        input.placeholder = "YOU> enter command...";
+        input.placeholder = "enter command...";
         showWelcomeMessage();
       }, 450);
       return;
@@ -254,11 +254,8 @@ function runBootSequence() {
 // Welcome line after boot
 function showWelcomeMessage() {
   const welcome =
-    "067> Agent-067 online. Short queries yield fast intel. Request 'explain in depth' for full mission lore.";
-  // We want this to look like a bot line, but we already prefix in layout,
-  // so strip the leading "067> " from the content we send to addMessage.
-  const stripped = welcome.replace(/^067>\s*/, "");
-  addMessage(stripped, "bot");
+    "Agent-067 online. Short queries yield fast intel. Request 'explain in depth' for full mission lore.";
+  addMessage(welcome, "bot");
 }
 
 // Start boot sequence
