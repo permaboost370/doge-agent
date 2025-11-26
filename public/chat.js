@@ -112,12 +112,30 @@ function createMessageRow(role, text) {
   return row;
 }
 
-// Typewriter effect for bot text with clicks
+// Linkify URLs (e.g. DexScreener) inside an element AFTER text is fully typed
+function linkifyUrlsInElement(element) {
+  if (!element) return;
+  const text = element.textContent;
+  if (!text) return;
+
+  // Only link real URLs, especially DexScreener
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  const safeText = text.replace(
+    urlRegex,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+
+  element.innerHTML = safeText;
+}
+
 function typeBotText(element, fullText, onDone) {
   let i = 0;
 
   function step() {
     if (i >= fullText.length) {
+      // After full text is written, linkify URLs then beep
+      linkifyUrlsInElement(element);
       if (onDone) onDone();
       return;
     }
